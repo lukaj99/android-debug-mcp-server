@@ -4,15 +4,16 @@ A Model Context Protocol (MCP) server for Android USB debugging, providing compr
 
 ## Features
 
-### 26 Tools Across 4 Categories
+### 27 Tools Across 4 Categories
 
-**Device Management (6 tools):**
+**Device Management (7 tools):**
 - `list_devices` - List all connected devices
 - `get_device_info` - Get detailed device information
 - `reboot_device` - Reboot to different modes
 - `connect_wireless` - Enable wireless ADB
 - `get_device_logs` - Get logcat output
 - `check_device_health` - Battery, storage, memory diagnostics
+- `setup_platform_tools` - Download and install Android Platform Tools
 
 **App Management (6 tools):**
 - `list_packages` - List installed packages
@@ -45,9 +46,11 @@ A Model Context Protocol (MCP) server for Android USB debugging, providing compr
 ### Prerequisites
 
 1. **Node.js 18+**
-2. **Android Platform Tools** (ADB & Fastboot)
-   - Download: https://developer.android.com/tools/releases/platform-tools
-   - Add to PATH or set `ADB_PATH` and `FASTBOOT_PATH` environment variables
+2. **Android Platform Tools** (ADB & Fastboot) - **Auto-installed on first use!**
+   - Tools are automatically downloaded to `~/.android-debug-mcp/platform-tools/`
+   - Manual setup: Use the `setup_platform_tools()` tool
+   - Or download manually: https://developer.android.com/tools/releases/platform-tools
+   - You can set `ADB_PATH` and `FASTBOOT_PATH` environment variables to override
 
 ### Setup
 
