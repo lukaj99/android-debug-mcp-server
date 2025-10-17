@@ -1,0 +1,68 @@
+{
+  "name": "android-debug-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Android USB debugging (ADB, Fastboot, and Android Platform Tools)",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "clean": "rm -rf dist/",
+    "lint": "eslint src/**/*.ts",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run type-check && npm run build",
+    "prepare": "npm run build",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "android",
+    "adb",
+    "fastboot",
+    "debugging",
+    "android-debug-bridge",
+    "model-context-protocol",
+    "device-management",
+    "mobile-development",
+    "android-tools"
+  ],
+  "author": "Android Debug MCP Server Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/android-debug-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/android-debug-mcp-server/issues"
+  },
+  "homepage": "https://github.com/yourusername/android-debug-mcp-server#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "unzipper": "^0.12.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/unzipper": "^0.10.10",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

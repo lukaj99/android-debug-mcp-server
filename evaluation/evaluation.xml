@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<evaluation>
+  <metadata>
+    <server_name>android-debug-mcp-server</server_name>
+    <created_date>2025-10-17</created_date>
+    <description>
+      Evaluation suite for Android Debug MCP server. Tests ability to manage devices,
+      apps, files, and perform system operations across multiple connected Android devices.
+      Focuses on multi-step workflows requiring 2-5+ tool calls.
+    </description>
+  </metadata>
+
+  <qa_pair>
+    <question>
+      List all connected Android devices and identify which device has the highest battery level.
+      Return the device ID and battery percentage.
+    </question>
+    <answer>Will vary by setup - requires list_devices() then check_device_health() for each device to compare battery levels</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      For device ABC123, find all user-installed apps (not system apps) and determine which app
+      takes up the most storage space. Return the package name and size.
+    </question>
+    <answer>Requires list_packages(filter="user") then get_app_info() for each to find largest</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      Check if device ABC123 has USB debugging enabled and is properly authorized. Also check
+      if wireless ADB is currently active. Return the authorization status and wireless status.
+    </question>
+    <answer>Requires list_devices() to check mode, get_device_info() to check wireless ADB status</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      For device ABC123, backup the APK file for package com.android.chrome to local path /backups/,
+      then verify the backup was successful by checking if the file exists locally.
+    </question>
+    <answer>Requires backup_app() then local filesystem verification</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      Among all connected devices, identify which device is currently in fastboot/bootloader mode.
+      If none are in bootloader mode, identify which device is in regular device mode and could be
+      rebooted to bootloader.
+    </question>
+    <answer>Requires list_devices() and checking mode field for each device</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      For device ABC123, get the last 100 lines of system logs filtered for errors only (priority E).
+      Count how many error messages mention "ActivityManager". Return the count.
+    </question>
+    <answer>Requires get_device_logs(filter="*:E") then parsing output to count ActivityManager mentions</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      Check if device ABC123 has root access available. If it does, also check if the bootloader
+      is unlocked. Return both status values.
+    </question>
+    <answer>Requires get_device_info() which includes isRooted and bootloaderUnlocked fields</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      List all files in /sdcard/Download/ directory on device ABC123 and identify the largest file.
+      Return the filename and size in bytes.
+    </question>
+    <answer>Requires list_files(path="/sdcard/Download/") then comparing size field to find largest</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      For device ABC123, check if the package com.example.testapp is currently enabled or disabled.
+      If it's disabled, what would be the exact command/action needed to enable it?
+    </question>
+    <answer>Requires get_app_info() or list_packages() to check status, then manage_app_state(action="enable") to enable</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>
+      Device ABC123 is currently in normal device mode. To flash a custom boot partition, what are
+      the exact steps needed? List the required tools in order and any safety tokens needed.
+    </question>
+    <answer>1. reboot_device(mode="bootloader") 2. flash_partition() with confirm_token="CONFIRM_FLASH_PARTITION_&lt;timestamp&gt;"</answer>
+  </qa_pair>
+</evaluation>

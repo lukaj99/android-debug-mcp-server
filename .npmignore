@@ -1,0 +1,56 @@
+# Source files (only ship compiled dist)
+src/
+tsconfig.json
+
+# Development files
+evaluation/
+.env.example
+.editorconfig
+
+# Build artifacts
+*.tsbuildinfo
+*.map
+
+# Testing
+coverage/
+.nyc_output/
+test/
+__tests__/
+
+# Documentation (optional - include if desired)
+docs/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Dependencies
+node_modules/
+
+# Temporary
+tmp/
+temp/
+
+# Plan files
+*.plan.md
+
