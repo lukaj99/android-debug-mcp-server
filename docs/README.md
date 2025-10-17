@@ -101,6 +101,11 @@ On your Android device:
 
 ### Basic Workflows
 
+**Setup platform tools (first time):**
+```
+setup_platform_tools()
+```
+
 **List connected devices:**
 ```
 list_devices()
@@ -265,8 +270,11 @@ backup_app(
 - Check manufacturer website for unlock instructions
 
 ### ADB not found
-- Install Android Platform Tools
+- **Auto-install (recommended)**: Use `setup_platform_tools()` tool to automatically download and install
+- Tools will be installed to `~/.android-debug-mcp/platform-tools/`
+- Manual install: Download from https://developer.android.com/tools/releases/platform-tools
 - Add to PATH or set `ADB_PATH` environment variable
+- On first command, tools will be automatically downloaded if not found
 
 ## Security Considerations
 
