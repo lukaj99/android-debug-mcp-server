@@ -16,7 +16,7 @@
 
 ## Overview
 
-The Android Debug MCP Server is a Model Context Protocol (MCP) server that provides AI assistants with comprehensive access to Android device debugging capabilities. It exposes 26 tools across 4 categories, enabling device management, app operations, file transfers, and system flashing operations.
+The Android Debug MCP Server is a Model Context Protocol (MCP) server that provides AI assistants with comprehensive access to Android device debugging capabilities. It exposes 27 tools across 4 categories, enabling device management, app operations, file transfers, and system flashing operations.
 
 ### Key Characteristics
 
@@ -208,7 +208,7 @@ src/
 ├── config.ts             # Configuration constants
 ├── types.ts              # TypeScript type definitions
 │
-├── tools/                # Tool implementations (26 tools)
+├── tools/                # Tool implementations (27 tools)
 │   ├── device.ts         # Device management (6 tools)
 │   ├── app.ts            # App management (6 tools)
 │   ├── file.ts           # File operations (6 tools)
