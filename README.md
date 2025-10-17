@@ -47,7 +47,7 @@ Edit your Claude Desktop configuration (`~/Library/Application Support/Claude/cl
 
 ## 🛠️ Features
 
-### 27 Tools Across 4 Categories
+### 35 Tools Across 5 Categories
 
 **Device Management (7 tools)**
 - List devices, get info, reboot, wireless ADB, logs, health checks, platform tools setup
@@ -58,8 +58,11 @@ Edit your Claude Desktop configuration (`~/Library/Application Support/Claude/cl
 **File Operations (6 tools)**
 - Push/pull files, list directories, shell commands, backups
 
-**Flashing & Rooting (8 tools)**
-- Flash partitions, unlock/lock bootloader, boot images, factory reset
+**Flashing & Rooting (10 tools)**
+- Flash partitions, unlock/lock bootloader, boot images, factory reset, partition management
+
+**Screen & Interaction (6 tools - NEW!)**
+- Screenshot capture, screen info, input tap/swipe/text, screen recording for visual debugging and UI automation
 
 ## 🔒 Safety Features
 

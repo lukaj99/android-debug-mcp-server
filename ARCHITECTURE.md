@@ -208,16 +208,17 @@ src/
 ├── config.ts             # Configuration constants
 ├── types.ts              # TypeScript type definitions
 │
-├── tools/                # Tool implementations (27 tools)
-│   ├── device.ts         # Device management (6 tools)
+├── tools/                # Tool implementations (35 tools)
+│   ├── device.ts         # Device management (7 tools)
 │   ├── app.ts            # App management (6 tools)
 │   ├── file.ts           # File operations (6 tools)
-│   └── flash.ts          # Flashing & rooting (8 tools)
+│   ├── flash.ts          # Flashing & partition mgmt (10 tools)
+│   └── interaction.ts    # Screen & interaction (6 tools) NEW!
 │
 └── utils/                # Utility modules
     ├── executor.ts       # Command execution
-    ├── formatter.ts      # Response formatting
-    ├── validator.ts      # Input validation
+    ├── formatter.ts      # Response formatting (+ formatBytes)
+    ├── validator.ts      # Input validation (+ coords, keycodes)
     ├── error-handler.ts  # Error handling
     └── device-manager.ts # Device state management
 ```
@@ -292,7 +293,7 @@ Centralizes error handling with actionable messages.
 
 ## Tool Categories
 
-### 1. Device Management Tools (6 tools)
+### 1. Device Management Tools (7 tools)
 
 | Tool | Purpose | Read-Only |
 |------|---------|-----------|
@@ -301,7 +302,8 @@ Centralizes error handling with actionable messages.
 | `check_device_health` | Battery, temperature, and status | ✓ |
 | `get_device_logs` | System logs (logcat) with filtering | ✓ |
 | `reboot_device` | Reboot to different modes | ✗ |
-| `enable_wireless_adb` | Enable ADB over WiFi | ✗ |
+| `connect_wireless` | Enable ADB over WiFi | ✗ |
+| `setup_platform_tools` | Download and install platform tools | ✗ |
 
 ### 2. App Management Tools (6 tools)
 
@@ -325,18 +327,31 @@ Centralizes error handling with actionable messages.
 | `shell_command` | Execute arbitrary shell command | ✗ |
 | `backup_data` | Full device backup | ✗ |
 
-### 4. Flashing & Rooting Tools (8 tools)
+### 4. Flashing & Partition Management Tools (10 tools)
 
 | Tool | Purpose | Destructive |
 |------|---------|-------------|
-| `get_partition_info` | List device partitions | ✗ |
 | `flash_partition` | Flash partition image | ✓ |
 | `erase_partition` | Wipe partition | ✓ |
 | `format_partition` | Format partition | ✓ |
 | `boot_image` | Temporarily boot image | ✗ |
 | `unlock_bootloader` | Unlock bootloader | ✓ |
 | `lock_bootloader` | Lock bootloader | ✓ |
+| `set_active_slot` | Switch A/B partition slots | ✗ |
 | `flash_all` | Flash entire factory image | ✓ |
+| `list_partitions` | List all device partitions | ✗ |
+| `dump_partition` | Backup partition to PC | ✓ |
+
+### 5. Screen & Interaction Tools (6 tools) 🆕
+
+| Tool | Purpose | Read-Only |
+|------|---------|-----------|
+| `capture_screenshot` | Capture device screen as PNG | ✓ |
+| `get_screen_info` | Get screen resolution and orientation | ✓ |
+| `input_tap` | Simulate tap at coordinates | ✗ |
+| `input_swipe` | Simulate swipe gesture | ✗ |
+| `input_text` | Type text or send key events | ✗ |
+| `record_screen` | Record screen video | ✓ |
 
 ---
 

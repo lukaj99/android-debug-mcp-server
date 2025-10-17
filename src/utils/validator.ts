@@ -3,6 +3,7 @@
  */
 
 import { CONFIG, ERROR_MESSAGES } from '../config.js';
+import { ANDROID_KEYCODES, type PartitionInfo } from '../types.js';
 
 export class SafetyValidator {
   /**
@@ -162,5 +163,119 @@ export class SafetyValidator {
         `Use specific tools (erase_partition, format_partition, etc.) for destructive operations.`
       );
     }
+  }
+
+  /**
+   * Validate screen coordinates for input simulation
+   */
+  static validateCoordinates(
+    x: number,
+    y: number,
+    screenWidth?: number,
+    screenHeight?: number
+  ): void {
+    if (!Number.isInteger(x) || x < 0) {
+      throw new Error(
+        `Invalid X coordinate: ${x}. Must be a non-negative integer.`
+      );
+    }
+
+    if (!Number.isInteger(y) || y < 0) {
+      throw new Error(
+        `Invalid Y coordinate: ${y}. Must be a non-negative integer.`
+      );
+    }
+
+    if (screenWidth !== undefined && x > screenWidth) {
+      throw new Error(
+        `X coordinate ${x} exceeds screen width ${screenWidth}. ` +
+        `Valid range: 0-${screenWidth}`
+      );
+    }
+
+    if (screenHeight !== undefined && y > screenHeight) {
+      throw new Error(
+        `Y coordinate ${y} exceeds screen height ${screenHeight}. ` +
+        `Valid range: 0-${screenHeight}`
+      );
+    }
+  }
+
+  /**
+   * Escape text for Android shell input command
+   * Replaces spaces with %s and escapes special shell characters
+   */
+  static escapeShellText(text: string): string {
+    // First escape backslashes, then other special chars
+    return text
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, '\\$')
+      .replace(/'/g, "\\'")
+      .replace(/`/g, '\\`')
+      .replace(/ /g, '%s');
+  }
+
+  /**
+   * Validate Android keycode and return its numeric value
+   */
+  static validateKeycode(keycode: string): number {
+    const keycodeUpper = keycode.toUpperCase();
+    const keycodeNumber = ANDROID_KEYCODES[keycodeUpper];
+
+    if (keycodeNumber === undefined) {
+      const validKeys = Object.keys(ANDROID_KEYCODES).slice(0, 20).join(', ');
+      throw new Error(
+        `Invalid keycode: "${keycode}"\n\n` +
+        `Valid keycodes include: ${validKeys}, ...\n` +
+        `See Android KeyEvent documentation for complete list.`
+      );
+    }
+
+    return keycodeNumber;
+  }
+
+  /**
+   * Validate partition exists in the provided list and return partition info
+   */
+  static validatePartitionExists(
+    partitionName: string,
+    availablePartitions: PartitionInfo[]
+  ): PartitionInfo {
+    const partition = availablePartitions.find(
+      p => p.name === partitionName || p.name === partitionName.toLowerCase()
+    );
+
+    if (!partition) {
+      const available = availablePartitions
+        .map(p => p.name)
+        .slice(0, 20)
+        .join(', ');
+      throw new Error(
+        `Partition "${partitionName}" not found on device.\n\n` +
+        `Available partitions: ${available}${availablePartitions.length > 20 ? ', ...' : ''}`
+      );
+    }
+
+    return partition;
+  }
+
+  /**
+   * Check if partition is critical (system-critical partition)
+   */
+  static isCriticalPartition(partitionName: string): boolean {
+    const criticalPartitions = [
+      'boot', 'boot_a', 'boot_b',
+      'system', 'system_a', 'system_b',
+      'vendor', 'vendor_a', 'vendor_b',
+      'userdata', 'metadata',
+      'vbmeta', 'vbmeta_a', 'vbmeta_b',
+      'super', 'super_a', 'super_b',
+      'bootloader', 'bootloader_a', 'bootloader_b',
+      'radio', 'radio_a', 'radio_b',
+      'modem', 'modem_a', 'modem_b'
+    ];
+
+    return criticalPartitions.includes(partitionName.toLowerCase());
   }
 }

@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server for Android USB debugging, providing compr
 
 ## Features
 
-### 27 Tools Across 4 Categories
+### 35 Tools Across 5 Categories
 
 **Device Management (7 tools):**
 - `list_devices` - List all connected devices
@@ -31,7 +31,7 @@ A Model Context Protocol (MCP) server for Android USB debugging, providing compr
 - `execute_shell` - Run shell commands
 - `sync_data` - Sync filesystem buffers
 
-**Flashing & Rooting (8 tools):**
+**Flashing & Partition Management (10 tools):**
 - `flash_partition` - Flash partition image
 - `boot_image` - Boot image temporarily
 - `unlock_bootloader` - Unlock bootloader (WIPES DATA!)
@@ -40,6 +40,16 @@ A Model Context Protocol (MCP) server for Android USB debugging, providing compr
 - `format_partition` - Format partition
 - `set_active_slot` - Switch A/B slots
 - `flash_all` - Flash factory image
+- `list_partitions` - List all device partitions with details
+- `dump_partition` - Backup partition to PC (requires root)
+
+**Screen & Interaction (6 tools) 🆕:**
+- `capture_screenshot` - Capture device screen as PNG for AI analysis
+- `get_screen_info` - Get screen resolution, density, orientation
+- `input_tap` - Simulate tap at specific coordinates
+- `input_swipe` - Simulate swipe gesture for scrolling/navigation
+- `input_text` - Type text or send key events (HOME, BACK, etc.)
+- `record_screen` - Record device screen to video file
 
 ## Installation
 
@@ -249,6 +259,140 @@ backup_app(
   package_name="com.example.app",
   output_path="/backups/"
 )
+```
+
+### Screen & Interaction (Visual Debugging & UI Automation) 🆕
+
+```
+# Get screen information for automation planning
+get_screen_info(device_id="ABC123")
+# Returns: width, height, density, orientation
+
+# Capture screenshot for AI visual analysis
+capture_screenshot(
+  device_id="ABC123",
+  output_path="/screenshots/bug.png",
+  return_base64=true  # Include base64 for AI image analysis
+)
+
+# Simulate tap at specific coordinates
+input_tap(device_id="ABC123", x=540, y=1200)
+
+# Swipe up to unlock or scroll
+input_swipe(
+  device_id="ABC123",
+  x1=540, y1=2000,  # Start at bottom-center
+  x2=540, y2=800,   # Swipe up to top-center
+  duration_ms=300
+)
+
+# Type text into input field
+input_text(device_id="ABC123", text="my_password123")
+
+# Send key events (HOME, BACK, ENTER, VOLUME_UP, etc.)
+input_text(device_id="ABC123", keycode="ENTER")
+input_text(device_id="ABC123", keycode="HOME")
+input_text(device_id="ABC123", keycode="BACK")
+
+# Record screen video (max 180 seconds)
+record_screen(
+  device_id="ABC123",
+  duration_seconds=30,
+  output_path="/videos/demo.mp4",
+  bit_rate="8M"  # High quality
+)
+```
+
+**Complete UI Automation Example:**
+```
+# 1. Get screen dimensions
+screen = get_screen_info(device_id="ABC123")
+# Returns: {"width": 1080, "height": 2400, ...}
+
+# 2. Take before screenshot
+capture_screenshot(device_id="ABC123", output_path="/screenshots/before.png")
+
+# 3. Unlock device (swipe up from bottom)
+input_swipe(
+  device_id="ABC123",
+  x1=screen.width/2, y1=screen.height*0.9,
+  x2=screen.width/2, y2=screen.height*0.3,
+  duration_ms=500
+)
+
+# 4. Enter password
+input_text(device_id="ABC123", text="password")
+input_text(device_id="ABC123", keycode="ENTER")
+
+# 5. Navigate (tap app icon)
+input_tap(device_id="ABC123", x=270, y=800)
+
+# 6. Take after screenshot
+capture_screenshot(device_id="ABC123", output_path="/screenshots/after.png")
+```
+
+### Partition Management 🆕
+
+```
+# List all partitions with sizes
+list_partitions(device_id="ABC123", detail="detailed")
+# Shows: boot_a, boot_b, system_a, system_b, vendor_a, vendor_b, etc.
+# Critical partitions are marked with ⚠️
+
+# Backup boot partition before flashing (requires root)
+dump_partition(
+  device_id="ABC123",
+  partition_name="boot_a",
+  output_path="/backups/boot_a_20240115.img",
+  confirm_token="CONFIRM_DUMP_PARTITION_1705334400000",
+  calculate_checksum=true  # Generates SHA256
+)
+# Returns: path, size, SHA256, duration
+
+# Now safe to flash modified boot
+flash_partition(
+  device_id="ABC123",
+  partition="boot_a",
+  image_path="/images/magisk_patched_boot.img",
+  confirm_token="CONFIRM_FLASH_PARTITION_1705334500000"
+)
+
+# If issues, restore from backup
+flash_partition(
+  device_id="ABC123",
+  partition="boot_a",
+  image_path="/backups/boot_a_20240115.img",
+  confirm_token="CONFIRM_FLASH_PARTITION_1705334600000"
+)
+```
+
+**Safe Flashing Workflow:**
+```
+# 1. List partitions to identify targets
+partitions = list_partitions(device_id="ABC123")
+
+# 2. Backup current boot partition (requires root)
+dump_partition(
+  device_id="ABC123",
+  partition_name="boot_a",
+  output_path="/backups/boot_a_backup.img",
+  confirm_token="CONFIRM_DUMP_PARTITION_1705334400000"
+)
+
+# 3. Flash modified boot
+flash_partition(
+  device_id="ABC123",
+  partition="boot_a",
+  image_path="/images/custom_boot.img",
+  confirm_token="CONFIRM_FLASH_PARTITION_1705334500000"
+)
+
+# 4. Test device
+reboot_device(device_id="ABC123", mode="system")
+
+# 5. If bootloop, restore backup:
+#    - Reboot to fastboot
+#    - Flash backup partition
 ```
 
 ## Troubleshooting
