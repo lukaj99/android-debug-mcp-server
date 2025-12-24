@@ -14,6 +14,9 @@ import { appTools } from './tools/app.js';
 import { fileTools } from './tools/file.js';
 import { flashTools } from './tools/flash.js';
 import { interactionTools } from './tools/interaction.js';
+import { firmwareTools } from './tools/firmware.js';
+import { patchingTools } from './tools/patching.js';
+import { rootTools } from './tools/root.js';
 
 /**
  * Create and configure MCP server with all tools
@@ -37,7 +40,10 @@ export function createServer(): Server {
     ...appTools,
     ...fileTools,
     ...flashTools,
-    ...interactionTools
+    ...interactionTools,
+    ...firmwareTools,
+    ...patchingTools,
+    ...rootTools
   };
 
   // Note: readOnlyHint annotations would go here if SDK supported them in tool metadata
@@ -99,6 +105,6 @@ export async function startServer(): Promise<void> {
   await server.connect(transport);
 
   console.error('Android Debug MCP Server running on stdio');
-  console.error('Available tools: 35 (device: 7, app: 6, file: 6, flash: 10, interaction: 6)');
+  console.error('Available tools: 59 (device: 11, app: 6, file: 6, flash: 17, interaction: 6, firmware: 4, patching: 5, root: 4)');
   console.error('Safety mode: Expert (includes destructive operations with confirmation tokens)');
 }

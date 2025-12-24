@@ -119,6 +119,113 @@ export interface FlashOptions {
   skipReboot?: boolean;
 }
 
+// AVB (Android Verified Boot) types
+export interface VerityState {
+  verity: boolean;
+  verification: boolean;
+  raw: string;
+}
+
+export interface AVBState {
+  unlocked: boolean;
+  verityEnabled: boolean;
+  verificationEnabled: boolean;
+  stateCode: number;
+  stateDescription: string;
+  slots: Record<string, VerityState>;
+  rollbackIndices: Record<string, number>;
+  slotCount?: number;
+  currentSlot?: string;
+  avbVersion?: string;
+}
+
+// Root solution types
+export type RootSolution =
+  | 'magisk'
+  | 'kernelsu'
+  | 'kernelsu-next'
+  | 'apatch'
+  | 'apatch-next'
+  | 'sukisu'
+  | 'supersu'
+  | 'none';
+
+export interface RootSolutionInfo {
+  solution: RootSolution;
+  installed: boolean;
+  version: string | null;
+  versionCode: number | null;
+  appVersion: string | null;
+  packageName: string | null;
+  features: string[];
+}
+
+// Image validation types
+export interface BootImageInfo {
+  headerVersion: number;
+  kernelSize: number;
+  ramdiskSize: number;
+  pageSize: number;
+  osVersion?: string;
+  osPatchLevel?: string;
+  cmdline?: string;
+}
+
+export interface ImageValidationResult {
+  valid: boolean;
+  path: string;
+  exists: boolean;
+  size: number;
+  sizeHuman: string;
+  sha256: string;
+  type: 'boot' | 'vendor_boot' | 'vbmeta' | 'sparse' | 'unknown';
+  bootImageInfo?: BootImageInfo;
+  warnings: string[];
+  errors: string[];
+}
+
+// Slot information types
+export interface SlotInfo {
+  isAB: boolean;
+  currentSlot?: string;
+  slotA?: {
+    bootable: boolean;
+    successful: boolean;
+    retryCount: number;
+  };
+  slotB?: {
+    bootable: boolean;
+    successful: boolean;
+    retryCount: number;
+  };
+}
+
+// Bootloader state types
+export interface BootloaderState {
+  unlocked: boolean;
+  unlockAbility: boolean;
+  antiRollbackVersion?: number;
+  secureBootEnabled?: boolean;
+  deviceState: 'locked' | 'unlocked' | 'unknown';
+  criticalUnlocked?: boolean;
+  hwPlatform?: string;
+  variant?: string;
+  serialno?: string;
+  product?: string;
+  rawVars: Record<string, string>;
+}
+
+// Downgrade check types
+export interface DowngradeCheckResult {
+  isDowngrade: boolean;
+  riskLevel: 'none' | 'low' | 'medium' | 'high';
+  warnings: string[];
+  currentBuildDate?: string;
+  newBuildDate?: string;
+  currentSPL?: string;
+  newSPL?: string;
+}
+
 export interface InstallOptions {
   replace?: boolean;
   downgrade?: boolean;

@@ -8,7 +8,9 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter } from '../utils/formatter.js';
 import { ErrorHandler } from '../utils/error-handler.js';
 import { PlatformToolsManager } from '../utils/platform-tools-manager.js';
-import type { DeviceInfo, RebootMode } from '../types.js';
+import { AVBParser } from '../utils/avb-parser.js';
+import { RootDetector } from '../utils/root-detector.js';
+import type { DeviceInfo, RebootMode, BootloaderState } from '../types.js';
 
 // Schemas
 export const ListDevicesSchema = z.object({
@@ -46,6 +48,27 @@ export const CheckDeviceHealthSchema = z.object({
 
 export const SetupPlatformToolsSchema = z.object({
   force: z.boolean().default(false).describe('Force re-download even if already installed'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+// New Phase 1 Schemas
+export const GetAVBStateSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const GetBootloaderStateSchema = z.object({
+  device_id: z.string().describe('Device ID in fastboot mode'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const DetectRootSolutionSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const GetSlotInfoSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
   format: z.enum(['markdown', 'json']).default('markdown')
 }).strict();
 
@@ -554,6 +577,430 @@ ${result}
 - Fastboot: ${newStatus.fastbootVersion}
 
 All commands will now use these tools automatically.`;
+      });
+    }
+  },
+
+  get_avb_state: {
+    description: `Get Android Verified Boot (AVB) state.
+
+Returns comprehensive AVB/verity information:
+- Bootloader lock state (locked/unlocked)
+- Verity verification status
+- Current slot information (A/B devices)
+- Rollback protection indices
+- Verified boot state (green/yellow/orange/red)
+
+Works in both ADB and fastboot modes:
+- ADB mode: Uses getprop queries (some info may require root)
+- Fastboot mode: Uses getvar queries (full information)
+
+AVB States:
+- GREEN: Locked bootloader, verified stock firmware
+- YELLOW: Locked bootloader, verified custom key
+- ORANGE: Unlocked bootloader (verification disabled)
+- RED: Verification failed
+
+Examples:
+- get_avb_state(device_id="ABC123") → Full AVB status
+- get_avb_state(device_id="ABC123", format="json") → Structured data`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof GetAVBStateSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        const device = await DeviceManager.validateDevice(args.device_id);
+
+        const avbState = await AVBParser.getAVBState(args.device_id, device.mode);
+
+        if (args.format === 'json') {
+          return JSON.stringify(avbState, null, 2);
+        }
+
+        let result = `# AVB State: ${args.device_id}\n\n`;
+
+        // Lock state
+        const lockIcon = avbState.unlocked ? '🔓' : '🔒';
+        result += `**Bootloader**: ${lockIcon} ${avbState.unlocked ? 'UNLOCKED' : 'LOCKED'}\n`;
+        result += `**State**: ${avbState.stateDescription}\n\n`;
+
+        // Verification status
+        result += `## Verification Status\n\n`;
+        result += `| Feature | Status |\n`;
+        result += `|---------|--------|\n`;
+        result += `| Verity | ${avbState.verityEnabled ? '✅ Enabled' : '❌ Disabled'} |\n`;
+        result += `| Verification | ${avbState.verificationEnabled ? '✅ Enabled' : '❌ Disabled'} |\n`;
+
+        // Slot info
+        if (avbState.slotCount && avbState.slotCount >= 2) {
+          result += `\n## A/B Slots\n\n`;
+          result += `**Current Slot**: ${avbState.currentSlot || 'Unknown'}\n`;
+          result += `**Slot Count**: ${avbState.slotCount}\n`;
+        }
+
+        // AVB version
+        if (avbState.avbVersion) {
+          result += `\n**AVB Version**: ${avbState.avbVersion}\n`;
+        }
+
+        // Rollback indices
+        if (Object.keys(avbState.rollbackIndices).length > 0) {
+          result += `\n## Rollback Indices\n\n`;
+          for (const [idx, value] of Object.entries(avbState.rollbackIndices)) {
+            result += `- Index ${idx}: ${value}\n`;
+          }
+        }
+
+        return result;
+      });
+    }
+  },
+
+  get_bootloader_state: {
+    description: `Get detailed bootloader state information.
+
+Returns comprehensive bootloader information from fastboot getvar:
+- Lock state (locked/unlocked)
+- OEM unlock ability
+- Anti-rollback version
+- Secure boot status
+- Hardware platform info
+- Product variant
+
+⚠️ REQUIRES FASTBOOT MODE ⚠️
+
+Device must be in bootloader/fastboot mode. Use:
+  reboot_device(device_id="...", mode="bootloader")
+
+Examples:
+- get_bootloader_state(device_id="ABC123") → Full bootloader info
+- get_bootloader_state(device_id="ABC123", format="json") → Structured data`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID in fastboot mode'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof GetBootloaderStateSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        const device = await DeviceManager.validateDevice(args.device_id);
+
+        if (device.mode !== 'bootloader') {
+          throw new Error(
+            `Device must be in fastboot mode. Current: ${device.mode}. ` +
+            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
+          );
+        }
+
+        const state: BootloaderState = {
+          unlocked: false,
+          unlockAbility: false,
+          deviceState: 'unknown',
+          rawVars: {},
+        };
+
+        // Get all variables
+        const result = await CommandExecutor.fastboot(args.device_id, ['getvar', 'all']);
+        const output = result.stderr || result.stdout;
+        const lines = output.split('\n');
+
+        for (const line of lines) {
+          const match = line.match(/\(bootloader\)\s*([^:]+):\s*(.+)/);
+          if (!match) continue;
+
+          const key = match[1].trim().toLowerCase();
+          const value = match[2].trim();
+
+          state.rawVars[key] = value;
+
+          // Parse known variables
+          if (key === 'unlocked') {
+            state.unlocked = value.toLowerCase() === 'yes';
+            state.deviceState = state.unlocked ? 'unlocked' : 'locked';
+          }
+          if (key === 'unlock-ability' || key === 'unlockable') {
+            state.unlockAbility = value === '1' || value.toLowerCase() === 'yes';
+          }
+          if (key === 'anti-rollback-version' || key.includes('rollback')) {
+            state.antiRollbackVersion = parseInt(value, 10) || undefined;
+          }
+          if (key === 'secure' || key === 'secureboot') {
+            state.secureBootEnabled = value.toLowerCase() === 'yes';
+          }
+          if (key === 'critical-unlocked' || key === 'flashing-unlocked') {
+            state.criticalUnlocked = value.toLowerCase() === 'yes';
+          }
+          if (key === 'hw-platform' || key === 'platform') {
+            state.hwPlatform = value;
+          }
+          if (key === 'variant') {
+            state.variant = value;
+          }
+          if (key === 'serialno') {
+            state.serialno = value;
+          }
+          if (key === 'product') {
+            state.product = value;
+          }
+        }
+
+        if (args.format === 'json') {
+          return JSON.stringify(state, null, 2);
+        }
+
+        let markdown = `# Bootloader State: ${args.device_id}\n\n`;
+
+        // Lock state
+        const lockIcon = state.unlocked ? '🔓' : '🔒';
+        markdown += `**State**: ${lockIcon} ${state.deviceState.toUpperCase()}\n`;
+        markdown += `**Unlock Ability**: ${state.unlockAbility ? '✅ Enabled' : '❌ Disabled'}\n`;
+
+        if (state.criticalUnlocked !== undefined) {
+          markdown += `**Critical Partitions Unlocked**: ${state.criticalUnlocked ? 'Yes' : 'No'}\n`;
+        }
+
+        // Hardware info
+        markdown += `\n## Hardware Info\n\n`;
+        if (state.product) markdown += `**Product**: ${state.product}\n`;
+        if (state.variant) markdown += `**Variant**: ${state.variant}\n`;
+        if (state.hwPlatform) markdown += `**Platform**: ${state.hwPlatform}\n`;
+        if (state.serialno) markdown += `**Serial**: ${state.serialno}\n`;
+
+        // Security
+        markdown += `\n## Security\n\n`;
+        if (state.secureBootEnabled !== undefined) {
+          markdown += `**Secure Boot**: ${state.secureBootEnabled ? 'Enabled' : 'Disabled'}\n`;
+        }
+        if (state.antiRollbackVersion !== undefined) {
+          markdown += `**Anti-Rollback Version**: ${state.antiRollbackVersion}\n`;
+        }
+
+        // Raw variables count
+        markdown += `\n*Total variables queried: ${Object.keys(state.rawVars).length}*`;
+
+        return markdown;
+      });
+    }
+  },
+
+  detect_root_solution: {
+    description: `Detect installed root solutions on device.
+
+Detects all installed root solutions including:
+- **Magisk**: Official, Delta, Alpha variants
+- **KernelSU**: Official, Next, Legacy variants
+- **APatch**: Official, Next variants
+- **SukiSU**: Ultra variant
+- **SuperSU**: Legacy chainfire root
+
+Returns for each detected solution:
+- Version information (binary + app versions)
+- Package name (if app installed)
+- Enabled features (Zygisk, Denylist, etc.)
+
+Useful for:
+- Determining which patching method to use
+- Checking for conflicting root solutions
+- Verifying root installation status
+
+Examples:
+- detect_root_solution(device_id="ABC123") → Detect all root solutions
+- detect_root_solution(device_id="ABC123", format="json") → Structured data`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof DetectRootSolutionSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        const device = await DeviceManager.validateDevice(args.device_id);
+
+        if (device.mode !== 'device') {
+          throw new Error(
+            `Device must be in ADB mode. Current: ${device.mode}. ` +
+            `Root detection requires booted Android system.`
+          );
+        }
+
+        const solutions = await RootDetector.detectRootSolutions(args.device_id);
+        const hasRoot = await RootDetector.hasRootAccess(args.device_id);
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            hasRootAccess: hasRoot,
+            solutions,
+          }, null, 2);
+        }
+
+        let result = `# Root Detection: ${args.device_id}\n\n`;
+
+        // Root access status
+        const rootIcon = hasRoot ? '✅' : '❌';
+        result += `**Root Access**: ${rootIcon} ${hasRoot ? 'Available' : 'Not Available'}\n\n`;
+
+        if (solutions.length === 0) {
+          result += `No root solutions detected.\n`;
+          result += `\n*Note: Device may still have root via ADB root or engineering build.*`;
+          return result;
+        }
+
+        result += `## Detected Solutions (${solutions.length})\n\n`;
+
+        for (const solution of solutions) {
+          const icon = solution.installed ? '✅' : '❌';
+          result += `### ${icon} ${solution.solution.toUpperCase()}\n\n`;
+
+          if (solution.version) {
+            result += `- **Version**: ${solution.version}\n`;
+          }
+          if (solution.versionCode) {
+            result += `- **Version Code**: ${solution.versionCode}\n`;
+          }
+          if (solution.appVersion) {
+            result += `- **App Version**: ${solution.appVersion}\n`;
+          }
+          if (solution.packageName) {
+            result += `- **Package**: ${solution.packageName}\n`;
+          }
+          if (solution.features.length > 0) {
+            result += `- **Features**: ${solution.features.join(', ')}\n`;
+          }
+          result += `\n`;
+        }
+
+        return result;
+      });
+    }
+  },
+
+  get_slot_info: {
+    description: `Get A/B partition slot information.
+
+Returns detailed slot information for A/B partitioned devices:
+- Whether device uses A/B slots
+- Current active slot
+- Slot health status (bootable, successful, retry count)
+- Slot switching capability
+
+A/B Slots enable seamless system updates by:
+- Updating inactive slot while system runs
+- Switching active slot after update
+- Rolling back if update fails
+
+Works in both ADB and fastboot modes:
+- Fastboot mode provides more detailed slot metadata
+- ADB mode only reports current slot
+
+Examples:
+- get_slot_info(device_id="ABC123") → Get slot information
+- get_slot_info(device_id="ABC123", format="json") → Structured data`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof GetSlotInfoSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        const device = await DeviceManager.validateDevice(args.device_id);
+
+        const slotInfo = await AVBParser.getSlotInfo(args.device_id, device.mode);
+
+        if (args.format === 'json') {
+          return JSON.stringify(slotInfo, null, 2);
+        }
+
+        let result = `# Slot Information: ${args.device_id}\n\n`;
+
+        if (!slotInfo.isAB) {
+          result += `**Slot Type**: Single slot (legacy)\n\n`;
+          result += `This device does not use A/B partitioning.\n`;
+          result += `\n*Note: Seamless updates and slot switching not available.*`;
+          return result;
+        }
+
+        result += `**Slot Type**: A/B (seamless updates)\n`;
+        result += `**Current Slot**: ${slotInfo.currentSlot?.toUpperCase() || 'Unknown'}\n\n`;
+
+        result += `## Slot Status\n\n`;
+        result += `| Slot | Bootable | Successful | Retry Count |\n`;
+        result += `|------|----------|------------|-------------|\n`;
+
+        if (slotInfo.slotA) {
+          const current = slotInfo.currentSlot === 'a' ? ' (active)' : '';
+          result += `| A${current} | ${slotInfo.slotA.bootable ? '✅' : '❌'} | `;
+          result += `${slotInfo.slotA.successful ? '✅' : '❌'} | `;
+          result += `${slotInfo.slotA.retryCount} |\n`;
+        }
+
+        if (slotInfo.slotB) {
+          const current = slotInfo.currentSlot === 'b' ? ' (active)' : '';
+          result += `| B${current} | ${slotInfo.slotB.bootable ? '✅' : '❌'} | `;
+          result += `${slotInfo.slotB.successful ? '✅' : '❌'} | `;
+          result += `${slotInfo.slotB.retryCount} |\n`;
+        }
+
+        // Slot health assessment
+        result += `\n## Health Assessment\n\n`;
+
+        const inactiveSlot = slotInfo.currentSlot === 'a' ? slotInfo.slotB : slotInfo.slotA;
+        const inactiveSlotName = slotInfo.currentSlot === 'a' ? 'B' : 'A';
+
+        if (inactiveSlot) {
+          if (!inactiveSlot.bootable) {
+            result += `⚠️ **Warning**: Slot ${inactiveSlotName} is not bootable. `;
+            result += `Consider flashing before switching.\n`;
+          } else if (!inactiveSlot.successful) {
+            result += `⚠️ **Warning**: Slot ${inactiveSlotName} has not booted successfully. `;
+            result += `May indicate failed update.\n`;
+          } else {
+            result += `✅ Both slots appear healthy.\n`;
+          }
+        }
+
+        result += `\n💡 **Tip**: Use \`set_active_slot\` to switch between slots.`;
+
+        return result;
       });
     }
   }
