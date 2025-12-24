@@ -72,6 +72,31 @@ export const GetSlotInfoSchema = z.object({
   format: z.enum(['markdown', 'json']).default('markdown')
 }).strict();
 
+// Phase 6A: WiFi ADB Schemas
+export const PairDeviceSchema = z.object({
+  ip_address: z.string().describe('IP address of the device'),
+  port: z.number().describe('Pairing port shown on device'),
+  pairing_code: z.string().describe('6-digit pairing code from device'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const ConnectWirelessNewSchema = z.object({
+  ip_address: z.string().describe('IP address of the device'),
+  port: z.number().default(5555).describe('Port number for wireless ADB'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const DisconnectWirelessSchema = z.object({
+  ip_address: z.string().describe('IP address of the device to disconnect'),
+  port: z.number().default(5555).describe('Port number'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const GetDeviceIpSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
 // Tool implementations
 export const deviceTools = {
   list_devices: {
@@ -1001,6 +1026,351 @@ Examples:
         result += `\n💡 **Tip**: Use \`set_active_slot\` to switch between slots.`;
 
         return result;
+      });
+    }
+  },
+
+  // Phase 6A: WiFi ADB Tools
+  pair_device: {
+    description: `Pair device for wireless debugging (Android 11+).
+
+Initiates wireless ADB pairing with a device. Required for first-time wireless connection.
+
+Prerequisites:
+1. Device must be on the same network
+2. Enable Developer Options > Wireless debugging
+3. Tap "Pair device with pairing code" to get IP:port and 6-digit code
+
+Examples:
+- pair_device(ip_address="192.168.1.100", port=37123, pairing_code="123456")`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        ip_address: {
+          type: 'string' as const,
+          description: 'IP address of the device'
+        },
+        port: {
+          type: 'number' as const,
+          description: 'Pairing port shown on device'
+        },
+        pairing_code: {
+          type: 'string' as const,
+          description: '6-digit pairing code from device'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['ip_address', 'port', 'pairing_code']
+    },
+    handler: async (args: z.infer<typeof PairDeviceSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        // Validate IP address format
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (!ipRegex.test(args.ip_address)) {
+          throw new Error(`Invalid IP address format: ${args.ip_address}`);
+        }
+
+        // Validate port range
+        if (args.port < 1 || args.port > 65535) {
+          throw new Error(`Invalid port number: ${args.port}`);
+        }
+
+        // Validate pairing code (typically 6 digits)
+        const codeRegex = /^\d{6}$/;
+        if (!codeRegex.test(args.pairing_code)) {
+          throw new Error('Pairing code must be 6 digits');
+        }
+
+        const target = `${args.ip_address}:${args.port}`;
+
+        // Execute adb pair command
+        const result = await CommandExecutor.adb(null, ['pair', target, args.pairing_code]);
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            success: result.success,
+            ip_address: args.ip_address,
+            port: args.port,
+            message: result.stdout || result.stderr,
+          }, null, 2);
+        }
+
+        if (result.success && result.stdout.toLowerCase().includes('success')) {
+          return `# Device Paired Successfully\n\n` +
+            `**Target**: ${target}\n\n` +
+            `✅ Device is now paired. Use \`connect_wireless_new\` to establish connection.\n\n` +
+            `**Next step**: connect_wireless_new(ip_address="${args.ip_address}", port=5555)`;
+        } else {
+          return `# Pairing Failed\n\n` +
+            `**Target**: ${target}\n\n` +
+            `❌ ${result.stderr || result.stdout || 'Unknown error'}\n\n` +
+            `**Tips**:\n` +
+            `- Ensure device shows pairing dialog\n` +
+            `- Check IP address and port\n` +
+            `- Verify 6-digit code is correct`;
+        }
+      });
+    }
+  },
+
+  connect_wireless_new: {
+    description: `Connect to a paired device wirelessly.
+
+Establishes wireless ADB connection to a previously paired device.
+
+Prerequisites:
+- Device must be paired first (use pair_device)
+- Device must be on same network
+- Wireless debugging must be enabled
+
+Examples:
+- connect_wireless_new(ip_address="192.168.1.100")
+- connect_wireless_new(ip_address="192.168.1.100", port=5555)`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        ip_address: {
+          type: 'string' as const,
+          description: 'IP address of the device'
+        },
+        port: {
+          type: 'number' as const,
+          default: 5555,
+          description: 'Port number for wireless ADB'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['ip_address']
+    },
+    handler: async (args: z.infer<typeof ConnectWirelessNewSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        // Validate IP address format
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (!ipRegex.test(args.ip_address)) {
+          throw new Error(`Invalid IP address format: ${args.ip_address}`);
+        }
+
+        const port = args.port || 5555;
+        if (port < 1 || port > 65535) {
+          throw new Error(`Invalid port number: ${port}`);
+        }
+
+        const target = `${args.ip_address}:${port}`;
+
+        // Execute adb connect
+        const result = await CommandExecutor.adb(null, ['connect', target]);
+
+        const output = result.stdout + result.stderr;
+        const connected = output.toLowerCase().includes('connected') &&
+                         !output.toLowerCase().includes('cannot');
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            success: connected,
+            ip_address: args.ip_address,
+            port: port,
+            device_id: connected ? target : null,
+            message: output.trim(),
+          }, null, 2);
+        }
+
+        if (connected) {
+          return `# Wireless Connection Established\n\n` +
+            `**Device ID**: ${target}\n\n` +
+            `✅ Connected wirelessly. You can now use this device ID for other operations.\n\n` +
+            `**Note**: Use \`disconnect_wireless\` when done to free resources.`;
+        } else {
+          return `# Connection Failed\n\n` +
+            `**Target**: ${target}\n\n` +
+            `❌ ${output.trim()}\n\n` +
+            `**Tips**:\n` +
+            `- Ensure device is paired first\n` +
+            `- Check that wireless debugging is still enabled\n` +
+            `- Verify IP address hasn't changed`;
+        }
+      });
+    }
+  },
+
+  disconnect_wireless: {
+    description: `Disconnect a wireless ADB connection.
+
+Disconnects a wirelessly connected device to free resources.
+
+Examples:
+- disconnect_wireless(ip_address="192.168.1.100")
+- disconnect_wireless(ip_address="192.168.1.100", port=5555)`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        ip_address: {
+          type: 'string' as const,
+          description: 'IP address of the device to disconnect'
+        },
+        port: {
+          type: 'number' as const,
+          default: 5555,
+          description: 'Port number'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['ip_address']
+    },
+    handler: async (args: z.infer<typeof DisconnectWirelessSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        // Validate IP address format
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (!ipRegex.test(args.ip_address)) {
+          throw new Error(`Invalid IP address format: ${args.ip_address}`);
+        }
+
+        const port = args.port || 5555;
+        const target = `${args.ip_address}:${port}`;
+
+        // Execute adb disconnect
+        const result = await CommandExecutor.adb(null, ['disconnect', target]);
+
+        const output = result.stdout + result.stderr;
+        const disconnected = output.toLowerCase().includes('disconnected');
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            success: disconnected,
+            ip_address: args.ip_address,
+            port: port,
+            message: output.trim(),
+          }, null, 2);
+        }
+
+        if (disconnected) {
+          return `# Device Disconnected\n\n` +
+            `**Target**: ${target}\n\n` +
+            `✅ Wireless connection closed.`;
+        } else {
+          return `# Disconnect Status\n\n` +
+            `**Target**: ${target}\n\n` +
+            `${output.trim() || 'Device may not have been connected.'}`;
+        }
+      });
+    }
+  },
+
+  get_device_ip: {
+    description: `Get the WiFi IP address of a connected device.
+
+Retrieves the device's IP address on the WiFi network.
+Useful for setting up wireless ADB.
+
+Examples:
+- get_device_ip(device_id="RF8M33...")`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof GetDeviceIpSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.validateDevice(args.device_id);
+
+        // Try multiple methods to get IP
+        let ipAddress: string | null = null;
+        let method = '';
+
+        // Method 1: ip addr show wlan0
+        const ipResult = await CommandExecutor.shell(
+          args.device_id,
+          "ip addr show wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1"
+        );
+        if (ipResult.success && ipResult.stdout.trim()) {
+          ipAddress = ipResult.stdout.trim().split('\n')[0];
+          method = 'wlan0';
+        }
+
+        // Method 2: Try wlan1 if wlan0 failed
+        if (!ipAddress) {
+          const wlan1Result = await CommandExecutor.shell(
+            args.device_id,
+            "ip addr show wlan1 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1"
+          );
+          if (wlan1Result.success && wlan1Result.stdout.trim()) {
+            ipAddress = wlan1Result.stdout.trim().split('\n')[0];
+            method = 'wlan1';
+          }
+        }
+
+        // Method 3: getprop
+        if (!ipAddress) {
+          const propResult = await CommandExecutor.shell(
+            args.device_id,
+            "getprop dhcp.wlan0.ipaddress 2>/dev/null"
+          );
+          if (propResult.success && propResult.stdout.trim()) {
+            ipAddress = propResult.stdout.trim();
+            method = 'dhcp prop';
+          }
+        }
+
+        // Method 4: ifconfig fallback
+        if (!ipAddress) {
+          const ifconfigResult = await CommandExecutor.shell(
+            args.device_id,
+            "ifconfig wlan0 2>/dev/null | grep 'inet addr' | cut -d: -f2 | cut -d' ' -f1"
+          );
+          if (ifconfigResult.success && ifconfigResult.stdout.trim()) {
+            ipAddress = ifconfigResult.stdout.trim();
+            method = 'ifconfig';
+          }
+        }
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            device_id: args.device_id,
+            ip_address: ipAddress,
+            method: method || null,
+            found: !!ipAddress,
+          }, null, 2);
+        }
+
+        if (ipAddress) {
+          return `# Device IP Address\n\n` +
+            `**Device**: ${args.device_id}\n` +
+            `**IP Address**: ${ipAddress}\n` +
+            `**Interface**: ${method}\n\n` +
+            `To connect wirelessly:\n` +
+            `1. Enable Wireless debugging on device\n` +
+            `2. Use \`pair_device\` with pairing code\n` +
+            `3. Then \`connect_wireless_new(ip_address="${ipAddress}")\``;
+        } else {
+          return `# IP Address Not Found\n\n` +
+            `**Device**: ${args.device_id}\n\n` +
+            `❌ Could not determine WiFi IP address.\n\n` +
+            `**Possible reasons**:\n` +
+            `- Device not connected to WiFi\n` +
+            `- WiFi interface has different name\n` +
+            `- Check Settings > About > IP address manually`;
+        }
       });
     }
   }

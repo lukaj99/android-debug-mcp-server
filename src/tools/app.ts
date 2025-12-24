@@ -52,6 +52,21 @@ export const ManageAppStateSchema = z.object({
   permission: z.string().optional().describe('Permission name for grant/revoke actions')
 }).strict();
 
+// Phase 6B: Package Manager Schemas
+export const DownloadApkSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  package_name: z.string().describe('Package name to download'),
+  output_path: z.string().describe('Local directory to save APK'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
+export const ManageDenylistSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  package_name: z.string().describe('Package name to add/remove'),
+  action: z.enum(['add', 'remove']).describe('Add or remove from denylist'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
 // Tool implementations
 export const appTools = {
   list_packages: {
@@ -506,6 +521,263 @@ Examples:
           `Action completed: ${action} for ${args.package_name}`,
           { package_name: args.package_name, action, permission: args.permission }
         );
+      });
+    }
+  },
+
+  // Phase 6B: Package Manager Tools
+  download_apk: {
+    description: `Download/extract an APK from a device.
+
+Extracts the APK file for an installed app from the device to local storage.
+Useful for backing up apps or analyzing APKs.
+
+Handles split APKs (base + config APKs) automatically.
+
+Examples:
+- download_apk(device_id="RF8M33...", package_name="com.example.app", output_path="/tmp")`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        package_name: {
+          type: 'string' as const,
+          description: 'Package name to download'
+        },
+        output_path: {
+          type: 'string' as const,
+          description: 'Local directory to save APK'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id', 'package_name', 'output_path']
+    },
+    handler: async (args: z.infer<typeof DownloadApkSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.validateDevice(args.device_id);
+        SafetyValidator.validatePackageName(args.package_name);
+
+        // Validate output path
+        const fs = await import('fs');
+        const path = await import('path');
+
+        const outputDir = path.resolve(args.output_path);
+        if (!fs.existsSync(outputDir)) {
+          throw new Error(`Output directory does not exist: ${outputDir}`);
+        }
+
+        // Get APK path(s) from device
+        const pathResult = await CommandExecutor.shell(
+          args.device_id,
+          `pm path ${args.package_name}`
+        );
+
+        if (!pathResult.success || !pathResult.stdout.trim()) {
+          throw new Error(`Package not found: ${args.package_name}`);
+        }
+
+        // Parse all APK paths (handle split APKs)
+        const apkPaths = pathResult.stdout
+          .split('\n')
+          .filter(line => line.startsWith('package:'))
+          .map(line => line.replace('package:', '').trim());
+
+        if (apkPaths.length === 0) {
+          throw new Error(`No APK paths found for: ${args.package_name}`);
+        }
+
+        const downloadedFiles: string[] = [];
+        const errors: string[] = [];
+
+        for (let i = 0; i < apkPaths.length; i++) {
+          const apkPath = apkPaths[i];
+          const apkName = apkPaths.length === 1
+            ? `${args.package_name}.apk`
+            : `${args.package_name}_${i === 0 ? 'base' : `split_${i}`}.apk`;
+          const localPath = path.join(outputDir, apkName);
+
+          const pullResult = await CommandExecutor.adb(
+            args.device_id,
+            ['pull', apkPath, localPath]
+          );
+
+          if (pullResult.success) {
+            downloadedFiles.push(localPath);
+          } else {
+            errors.push(`Failed to pull ${apkPath}: ${pullResult.stderr}`);
+          }
+        }
+
+        if (downloadedFiles.length === 0) {
+          throw new Error(`Failed to download APK: ${errors.join(', ')}`);
+        }
+
+        // Get file sizes
+        const fileSizes = downloadedFiles.map(file => {
+          const stats = fs.statSync(file);
+          return { path: file, size: stats.size };
+        });
+
+        const totalSize = fileSizes.reduce((sum, f) => sum + f.size, 0);
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            success: true,
+            package_name: args.package_name,
+            files: fileSizes,
+            total_size: totalSize,
+            split_apk: apkPaths.length > 1,
+            errors: errors.length > 0 ? errors : undefined,
+          }, null, 2);
+        }
+
+        let result = `# APK Downloaded\n\n`;
+        result += `**Package**: ${args.package_name}\n`;
+        result += `**Files**: ${downloadedFiles.length}\n`;
+        result += `**Total Size**: ${(totalSize / 1024 / 1024).toFixed(2)} MB\n\n`;
+
+        if (apkPaths.length > 1) {
+          result += `⚠️ **Split APK**: This app uses multiple APK files.\n\n`;
+        }
+
+        result += `## Downloaded Files\n\n`;
+        for (const file of fileSizes) {
+          result += `- \`${file.path}\` (${(file.size / 1024 / 1024).toFixed(2)} MB)\n`;
+        }
+
+        if (errors.length > 0) {
+          result += `\n## Warnings\n\n`;
+          for (const error of errors) {
+            result += `- ${error}\n`;
+          }
+        }
+
+        return result;
+      });
+    }
+  },
+
+  manage_denylist: {
+    description: `Add or remove a package from Magisk denylist.
+
+The denylist (formerly MagiskHide) hides root from specific apps.
+Requires Magisk with denylist feature enabled.
+
+Actions:
+- add: Add package to denylist (hide root from this app)
+- remove: Remove package from denylist
+
+Note: Requires device to be rooted with Magisk.
+
+Examples:
+- manage_denylist(device_id="RF8M33...", package_name="com.google.android.gms", action="add")
+- manage_denylist(device_id="RF8M33...", package_name="com.bank.app", action="remove")`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        package_name: {
+          type: 'string' as const,
+          description: 'Package name to add/remove'
+        },
+        action: {
+          type: 'string' as const,
+          enum: ['add', 'remove'],
+          description: 'Add or remove from denylist'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id', 'package_name', 'action']
+    },
+    handler: async (args: z.infer<typeof ManageDenylistSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.validateDevice(args.device_id);
+        SafetyValidator.validatePackageName(args.package_name);
+
+        // Check if Magisk is installed
+        const magiskCheck = await CommandExecutor.shell(
+          args.device_id,
+          'su -c "magisk -v" 2>/dev/null || echo "no_magisk"'
+        );
+
+        if (!magiskCheck.success || magiskCheck.stdout.includes('no_magisk')) {
+          throw new Error('Magisk not found. This feature requires Magisk root.');
+        }
+
+        const magiskVersion = magiskCheck.stdout.trim();
+
+        // Check denylist status first
+        const statusResult = await CommandExecutor.shell(
+          args.device_id,
+          'su -c "magisk --denylist status" 2>/dev/null'
+        );
+
+        const denylistEnabled = statusResult.success &&
+          (statusResult.stdout.includes('enabled') || statusResult.stdout.includes('enforced'));
+
+        // Execute denylist command
+        const command = args.action === 'add'
+          ? `su -c "magisk --denylist add ${args.package_name}"`
+          : `su -c "magisk --denylist rm ${args.package_name}"`;
+
+        const result = await CommandExecutor.shell(args.device_id, command);
+
+        // Verify the action
+        const verifyResult = await CommandExecutor.shell(
+          args.device_id,
+          `su -c "magisk --denylist ls" 2>/dev/null | grep "${args.package_name}"`
+        );
+
+        const inDenylist = verifyResult.success && verifyResult.stdout.includes(args.package_name);
+        const actionSuccessful = (args.action === 'add' && inDenylist) ||
+                                 (args.action === 'remove' && !inDenylist);
+
+        if (args.format === 'json') {
+          return JSON.stringify({
+            success: actionSuccessful,
+            package_name: args.package_name,
+            action: args.action,
+            in_denylist: inDenylist,
+            denylist_enabled: denylistEnabled,
+            magisk_version: magiskVersion,
+            message: result.stdout || result.stderr,
+          }, null, 2);
+        }
+
+        let markdown = `# Denylist ${args.action === 'add' ? 'Add' : 'Remove'}\n\n`;
+        markdown += `**Package**: ${args.package_name}\n`;
+        markdown += `**Action**: ${args.action}\n`;
+        markdown += `**Magisk Version**: ${magiskVersion}\n`;
+        markdown += `**Denylist Enabled**: ${denylistEnabled ? '✅ Yes' : '❌ No'}\n\n`;
+
+        if (actionSuccessful) {
+          markdown += `✅ **Success**: Package ${args.action === 'add' ? 'added to' : 'removed from'} denylist.\n`;
+          if (args.action === 'add') {
+            markdown += `\nRoot will be hidden from \`${args.package_name}\` after app restart.\n`;
+          }
+        } else {
+          markdown += `❌ **Failed**: ${result.stderr || result.stdout || 'Unknown error'}\n`;
+        }
+
+        if (!denylistEnabled && args.action === 'add') {
+          markdown += `\n⚠️ **Warning**: Denylist is not enabled. Enable it in Magisk settings for hiding to work.\n`;
+        }
+
+        return markdown;
       });
     }
   }
