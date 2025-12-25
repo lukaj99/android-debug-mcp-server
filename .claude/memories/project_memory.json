@@ -1,0 +1,33 @@
+{
+  "memories": [
+    {
+      "content": "PixelFlasher-inspired enhancement completed: 24 new tools added (35→59 total). Phases 1-5 done. PR #3 on branch feat/advanced-android-tools.",
+      "added_at": "2025-12-24T20:24:27.143154",
+      "source": "consolidated"
+    },
+    {
+      "content": "Tool categories: device (11), app (6), file (6), flash (17), interaction (6), firmware (4), patching (5), root (4). Binary deps: payload-dumper-go, magiskboot (auto-downloaded).",
+      "added_at": "2025-12-24T20:24:27.143154",
+      "source": "consolidated"
+    },
+    {
+      "content": "Remaining PixelFlasher features not yet extracted: Play Integrity Fix (PIF) Manager, Package Manager (batch app ops), WiFi ADB Pairing, Backup Manager.",
+      "added_at": "2025-12-24T20:24:27.143195",
+      "source": "consolidated"
+    },
+    {
+      "content": "User prefers Gemini CLI for orchestration and research tasks when dealing with large codebases.",
+      "added_at": "2025-12-24T19:02:04.592175",
+      "source": "consolidated"
+    },
+    {
+      "content": "Architecture: Hybrid Orchestrator pattern - TypeScript for decision logic/safety, auto-downloaded binaries for heavy processing. Stock boot caching at ~/.android-debug-mcp/boot-cache/.",
+      "added_at": "2025-12-24T20:10:19.042470",
+      "source": "consolidated"
+    }
+  ],
+  "manual_memories": [],
+  "realtime_memories": [],
+  "created_at": "2025-12-24T19:02:04.592053",
+  "updated_at": "2025-12-24T20:30:00.000000"
+}
