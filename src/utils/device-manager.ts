@@ -144,6 +144,29 @@ export class DeviceManager {
   }
 
   /**
+   * Validate device exists and is in required mode, throwing helpful error if not
+   */
+  static async requireMode(deviceId: string, requiredMode: 'device' | 'bootloader'): Promise<Device> {
+    const device = await this.validateDevice(deviceId);
+
+    if (device.mode !== requiredMode) {
+      if (requiredMode === 'bootloader') {
+        throw new Error(
+          `Device must be in fastboot mode. Current: ${device.mode}. ` +
+          `Use reboot_device(device_id="${deviceId}", mode="bootloader") first.`
+        );
+      } else {
+        throw new Error(
+          `Device must be in ADB mode. Current mode: ${device.mode}\n\n` +
+          `Use reboot_device(device_id="${deviceId}", mode="system") to reboot to ADB mode.`
+        );
+      }
+    }
+
+    return device;
+  }
+
+  /**
    * Clear device cache (force refresh on next call)
    */
   static clearCache(): void {

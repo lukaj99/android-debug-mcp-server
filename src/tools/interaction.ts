@@ -103,14 +103,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof CaptureScreenshotSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(
-            `Device must be in ADB mode for screenshots. Current mode: ${device.mode}\n\n` +
-            `Use reboot_device(device_id="${args.device_id}", mode="system") to reboot to ADB mode.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Generate output path if not provided
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -236,13 +229,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof GetScreenInfoSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(
-            `Device must be in ADB mode. Current mode: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Get screen size
         const sizeResult = await CommandExecutor.shell(args.device_id, 'wm size');
@@ -352,11 +339,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof InputTapSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(`Device must be in ADB mode. Current mode: ${device.mode}`);
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Validate coordinates
         SafetyValidator.validateCoordinates(args.x, args.y);
@@ -446,11 +429,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof InputSwipeSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(`Device must be in ADB mode. Current mode: ${device.mode}`);
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Validate all coordinates
         SafetyValidator.validateCoordinates(args.x1, args.y1);
@@ -552,11 +531,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof InputTextSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(`Device must be in ADB mode. Current mode: ${device.mode}`);
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Validate that either text or keycode is provided
         if (!args.text && !args.keycode) {
@@ -657,13 +632,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof RecordScreenSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(
-            `Device must be in ADB mode. Current mode: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Validate duration
         if (args.duration_seconds > 180) {

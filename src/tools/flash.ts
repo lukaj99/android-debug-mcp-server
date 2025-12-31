@@ -127,14 +127,7 @@ Examples:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('FLASH_PARTITION', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}. ` +
-            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validatePartitionName(args.partition);
         SafetyValidator.validateDevicePath(args.image_path);
@@ -189,14 +182,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof BootImageSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}. ` +
-            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validateDevicePath(args.image_path);
 
@@ -268,14 +254,7 @@ Example:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('UNLOCK_BOOTLOADER', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}. ` +
-            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         // Check if already unlocked
         const checkResult = await CommandExecutor.fastboot(args.device_id, [
@@ -369,14 +348,7 @@ Example:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('LOCK_BOOTLOADER', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}. ` +
-            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         // Try modern lock command first
         let result = await CommandExecutor.fastboot(args.device_id, [
@@ -454,13 +426,7 @@ Example:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('ERASE_PARTITION', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validatePartitionName(args.partition);
 
@@ -529,13 +495,7 @@ Example:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('FORMAT_PARTITION', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validatePartitionName(args.partition);
 
@@ -601,13 +561,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof SetActiveSlotSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         const result = await CommandExecutor.fastboot(args.device_id, [
           'set_active',
@@ -689,13 +643,7 @@ Example:
       return ErrorHandler.wrap(async () => {
         SafetyValidator.validateConfirmationToken('FLASH_ALL', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot mode. Current: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validateDevicePath(args.image_directory);
 
@@ -772,14 +720,7 @@ Examples:
     },
     handler: async (args: z.infer<typeof ListPartitionsSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(
-            `Device must be in ADB mode. Current mode: ${device.mode}\n\n` +
-            `Use reboot_device(device_id="${args.device_id}", mode="system") to reboot to ADB mode.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Get partition list from /dev/block/by-name/
         const byNameResult = await CommandExecutor.shell(
@@ -963,13 +904,7 @@ Examples:
         // Validate confirmation token
         SafetyValidator.validateConfirmationToken('DUMP_PARTITION', args.confirm_token);
 
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'device') {
-          throw new Error(
-            `Device must be in ADB mode. Current mode: ${device.mode}`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'device');
 
         // Check root access
         const rootCheck = await CommandExecutor.shell(args.device_id, 'su -c id');

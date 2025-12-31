@@ -321,14 +321,7 @@ Note: Device must be rebooted to fastboot mode first using reboot_device(mode="b
     },
     handler: async (args: z.infer<typeof BackupPartitionSchema>) => {
       return ErrorHandler.wrap(async () => {
-        const device = await DeviceManager.validateDevice(args.device_id);
-
-        if (device.mode !== 'bootloader') {
-          throw new Error(
-            `Device must be in fastboot/bootloader mode. Current mode: ${device.mode}. ` +
-            `Use reboot_device(device_id="${args.device_id}", mode="bootloader") first.`
-          );
-        }
+        await DeviceManager.requireMode(args.device_id, 'bootloader');
 
         SafetyValidator.validatePartitionName(args.partition);
         SafetyValidator.validateDevicePath(args.output_path);
