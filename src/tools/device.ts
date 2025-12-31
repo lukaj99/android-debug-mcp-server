@@ -132,60 +132,70 @@ Examples:
           mode: 'device'
         };
 
-        // Get device properties
-        const props = await CommandExecutor.shell(args.device_id, 'getprop');
+        const SEP = '|||';
+        const cmd = [
+          'echo "PROP:manufacturer:$(getprop ro.product.manufacturer)"',
+          'echo "PROP:model:$(getprop ro.product.model)"',
+          'echo "PROP:version:$(getprop ro.build.version.release)"',
+          'echo "PROP:sdk:$(getprop ro.build.version.sdk)"',
+          'echo "PROP:build_id:$(getprop ro.build.id)"',
+          'echo "PROP:serial:$(getprop ro.serialno)"',
+          `echo "${SEP}"`,
+          'dumpsys battery',
+          `echo "${SEP}"`,
+          'ip addr show wlan0',
+          `echo "${SEP}"`,
+          'getprop service.adb.tcp.port',
+          `echo "${SEP}"`,
+          'su -c id 2>/dev/null || echo "not_root"',
+          `echo "${SEP}"`,
+          'su -c "getprop ro.boot.verifiedbootstate" 2>/dev/null || echo "unknown"'
+        ].join('; ');
 
-        if (props.success) {
-          const lines = props.stdout.split('\n');
+        const result = await CommandExecutor.shell(args.device_id, cmd);
+
+        if (result.success) {
+          const parts = result.stdout.split(SEP).map(s => s.trim());
+          const [props, battery, ip, adbWifi, rootCheck, bootloader] = parts;
+
+          // Parse Properties
+          const lines = props.split('\n');
           for (const line of lines) {
-            const match = line.match(/\[(.*?)\]: \[(.*?)\]/);
-            if (match) {
-              const [, key, value] = match;
-              if (key === 'ro.product.manufacturer') info.manufacturer = value;
-              if (key === 'ro.product.model') info.model = value;
-              if (key === 'ro.build.version.release') info.androidVersion = value;
-              if (key === 'ro.build.version.sdk') info.sdkVersion = value;
-              if (key === 'ro.build.id') info.buildId = value;
-              if (key === 'ro.serialno') info.serialNumber = value;
-            }
+            if (line.startsWith('PROP:manufacturer:')) info.manufacturer = line.substring(18).trim();
+            if (line.startsWith('PROP:model:')) info.model = line.substring(11).trim();
+            if (line.startsWith('PROP:version:')) info.androidVersion = line.substring(13).trim();
+            if (line.startsWith('PROP:sdk:')) info.sdkVersion = line.substring(9).trim();
+            if (line.startsWith('PROP:build_id:')) info.buildId = line.substring(14).trim();
+            if (line.startsWith('PROP:serial:')) info.serialNumber = line.substring(12).trim();
           }
-        }
 
-        // Check root
-        const suCheck = await CommandExecutor.shell(args.device_id, 'su -c id');
-        info.isRooted = suCheck.success && suCheck.stdout.includes('uid=0');
-
-        // Get bootloader status (requires root)
-        if (info.isRooted) {
-          const bootloaderCheck = await CommandExecutor.shell(args.device_id, 'su -c "getprop ro.boot.verifiedbootstate"');
-          info.bootloaderUnlocked = bootloaderCheck.stdout === 'orange';
-        } else {
-          info.bootloaderUnlocked = false;
-        }
-
-        // Get battery info
-        const battery = await CommandExecutor.shell(args.device_id, 'dumpsys battery');
-        if (battery.success) {
-          const levelMatch = battery.stdout.match(/level: (\d+)/);
-          const statusMatch = battery.stdout.match(/status: (\d+)/);
+          // Parse Battery
+          const levelMatch = battery.match(/level: (\d+)/);
+          const statusMatch = battery.match(/status: (\d+)/);
           if (levelMatch) info.batteryLevel = parseInt(levelMatch[1], 10);
           if (statusMatch) {
             const statusCode = parseInt(statusMatch[1], 10);
             const statuses = ['Unknown', 'Charging', 'Discharging', 'Not charging', 'Full'];
             info.batteryStatus = statuses[statusCode] || 'Unknown';
           }
-        }
 
-        // Get IP address
-        const ip = await CommandExecutor.shell(args.device_id, 'ip addr show wlan0');
-        if (ip.success) {
-          const ipMatch = ip.stdout.match(/inet (\d+\.\d+\.\d+\.\d+)/);
+          // Parse IP
+          const ipMatch = ip.match(/inet (\d+\.\d+\.\d+\.\d+)/);
           if (ipMatch) info.ip = ipMatch[1];
-        }
 
-        // Check wireless ADB
-        const adbWifi = await CommandExecutor.shell(args.device_id, 'getprop service.adb.tcp.port');
-        info.adbWifi = adbWifi.success && adbWifi.stdout !== '-1' && adbWifi.stdout !== '';
+          // Parse ADB Wifi
+          info.adbWifi = adbWifi !== '-1' && adbWifi !== '';
+
+          // Parse Root
+          info.isRooted = rootCheck.includes('uid=0');
+
+          // Parse Bootloader
+          if (info.isRooted) {
+            info.bootloaderUnlocked = bootloader === 'orange';
+          } else {
+            info.bootloaderUnlocked = false;
+          }
+        }
 
         return ResponseFormatter.format(info, args.format, args.detail);
       });
