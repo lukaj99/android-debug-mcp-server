@@ -1,0 +1,193 @@
+#!/bin/bash
+# Universal Dynamic ./dev Wrapper
+# Auto-detects available tools (dev_agent, Make, NPM, Cargo, Pip) at runtime.
+
+set -e
+
+# Ensure we run from the project root (where this script resides)
+cd "$(dirname "$0")"
+
+COMMAND="$1"
+shift || true
+
+# --- Helper Functions ---
+
+show_help() {
+    echo "Usage: ./dev <command> [args...]"
+    echo ""
+    echo "Detected Capabilities:"
+    detect_capabilities "display"
+    echo ""
+    echo "Standard Commands:"
+    echo "  setup      - Install dependencies (npm ci, pip install, etc.)"
+    echo "  build      - Build project (make build, npm run build, cargo build)"
+    echo "  test       - Run tests (pytest, npm test, cargo test)"
+    echo "  lint       - Run linters"
+    echo "  clean      - Clean artifacts"
+    echo "  start      - Start application/dev server"
+    echo ""
+}
+
+# Check for tools in current directory
+detect_capabilities() {
+    local mode="${1:-quiet}"
+    
+    if [[ -d "dev_agent" ]]; then
+        [[ "$mode" == "display" ]] && echo "  ✅ dev_agent (Python Wrapper)"
+        HAS_DEV_AGENT=true
+    fi
+    if [[ -f "Makefile" ]]; then
+        [[ "$mode" == "display" ]] && echo "  🛠️  Makefile"
+        HAS_MAKEFILE=true
+    fi
+    if [[ -f "package.json" ]]; then
+        [[ "$mode" == "display" ]] && echo "  📦 NPM/Node.js"
+        HAS_NPM=true
+    fi
+    if [[ -f "Cargo.toml" ]]; then
+        [[ "$mode" == "display" ]] && echo "  🦀 Cargo/Rust"
+        HAS_CARGO=true
+    fi
+    if [[ -f "requirements.txt" || -f "pyproject.toml" ]]; then
+        [[ "$mode" == "display" ]] && echo "  🐍 Python Standard"
+        HAS_PYTHON=true
+    fi
+}
+
+# --- Dispatch Logic ---
+
+run_setup() {
+    if [[ "$HAS_DEV_AGENT" == "true" ]]; then
+        python -m dev_agent setup "$@"
+        return
+    fi
+    if [[ "$HAS_NPM" == "true" ]]; then
+        if [[ -f "yarn.lock" ]]; then
+            echo "Running: yarn install"
+            yarn install "$@"
+        elif [[ -f "pnpm-lock.yaml" ]]; then
+            echo "Running: pnpm install"
+            pnpm install "$@"
+        else
+            echo "Running: npm ci (fallback to install if no lockfile)"
+            [[ -f "package-lock.json" ]] && npm ci "$@" || npm install "$@"
+        fi
+    fi
+    if [[ "$HAS_CARGO" == "true" ]]; then
+        echo "Running: cargo fetch"
+        cargo fetch "$@"
+    fi
+    if [[ "$HAS_PYTHON" == "true" ]]; then
+        if [[ -f "requirements.txt" ]]; then
+            echo "Running: pip install -r requirements.txt"
+            pip install -r requirements.txt "$@"
+        fi
+        if [[ -f "requirements-dev.txt" ]]; then
+            echo "Running: pip install -r requirements-dev.txt"
+            pip install -r requirements-dev.txt "$@"
+        fi
+    fi
+}
+
+run_generic() {
+    local cmd="$1"
+    shift
+    
+    # 1. dev_agent (Highest Priority - specific wrapper)
+    if [[ "$HAS_DEV_AGENT" == "true" ]]; then
+        # Optimistically try passing command to dev_agent
+        # We assume dev_agent handles unknown commands gracefully or we rely on user knowledge
+        python -m dev_agent "$cmd" "$@"
+        return
+    fi
+
+    # 2. Makefile (Developer Explicit Targets)
+    if [[ "$HAS_MAKEFILE" == "true" ]]; then
+        # Check if target exists in Makefile (basic grep check)
+        if grep -q "^$cmd:" Makefile; then
+            echo "Running: make $cmd $@"
+            make "$cmd" "$@"
+            return
+        fi
+    fi
+
+    # 3. NPM Scripts
+    if [[ "$HAS_NPM" == "true" ]]; then
+        # Check if script exists in package.json
+        # Simple check: look for "cmd": or "cmd":
+        if grep -q "\"$cmd\":" package.json; then
+            echo "Running: npm run $cmd"
+            npm run "$cmd" -- "$@"
+            return
+        fi
+        
+        # Standard mapping for standard commands
+        case "$cmd" in
+            test)
+                echo "Running: npm test"
+                npm test -- "$@"
+                return ;;
+            start)
+                echo "Running: npm start"
+                npm start -- "$@"
+                return ;;
+            lint)
+                echo "Running: npm run lint"
+                npm run lint -- "$@"
+                return ;;
+            typecheck|type-check)
+                # Try type-check first, then typecheck
+                if grep -q "\"type-check\":" package.json; then
+                    echo "Running: npm run type-check"
+                    npm run type-check -- "$@"
+                    return
+                elif grep -q "\"typecheck\":" package.json; then
+                    echo "Running: npm run typecheck"
+                    npm run typecheck -- "$@"
+                    return
+                fi
+                ;;
+        esac
+    fi
+
+    # 4. Cargo
+    if [[ "$HAS_CARGO" == "true" ]]; then
+        case "$cmd" in
+            build) cargo build "$@"; return ;;
+            test) cargo test "$@"; return ;;
+            clean) cargo clean "$@"; return ;;
+            run|start) cargo run "$@"; return ;;
+            check|lint|typecheck) cargo check "$@"; return ;;
+        esac
+    fi
+
+    # 5. Python Standard
+    if [[ "$HAS_PYTHON" == "true" ]]; then
+        case "$cmd" in
+            test) pytest "$@"; return ;;
+        esac
+    fi
+
+    echo "Error: No provider found for command '$cmd'"
+    echo "Capabilities detected: dev_agent=$HAS_DEV_AGENT, make=$HAS_MAKEFILE, npm=$HAS_NPM, cargo=$HAS_CARGO, python=$HAS_PYTHON"
+    exit 1
+}
+
+
+# --- Main Execution ---
+
+detect_capabilities
+
+if [[ -z "$COMMAND" ]]; then
+    show_help
+    exit 1
+fi
+
+case "$COMMAND" in
+    setup)
+        run_setup "$@"
+        ;;
+    *)
+        run_generic "$COMMAND" "$@"
+        ;;
+esac

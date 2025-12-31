@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "filepath=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.file_path // .filePath // empty'); if [ -n \"$filepath\" ] && echo \"$filepath\" | grep -qE '\\.(env|pem|key|crt|p12|pfx)$'; then echo 'BLOCK: Sensitive file type - manual edit required'; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.command // empty'); if echo \"$cmd\" | grep -qE 'rm\\s+-rf\\s+[~/]|git\\s+push.*--force|npm\\s+publish'; then echo 'BLOCK: Dangerous command pattern'; exit 2; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "filepath=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.file_path // .filePath // empty'); if [ -n \"$filepath\" ] && echo \"$filepath\" | grep -qE '\\.ts$'; then npx prettier --write \"$filepath\" 2>/dev/null || true; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
