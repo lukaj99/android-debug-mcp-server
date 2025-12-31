@@ -723,53 +723,41 @@ Examples:
       return ErrorHandler.wrap(async () => {
         await DeviceManager.requireMode(args.device_id, 'device');
 
-        // Get partition list from /dev/block/by-name/
-        const byNameResult = await CommandExecutor.shell(
-          args.device_id,
-          'ls -la /dev/block/by-name/'
-        );
+        // Batch query all partitions: name, target path, and size
+        const cmd = 'for p in /dev/block/by-name/*; do echo "$(basename $p)|$(readlink -f $p)|$(blockdev --getsize64 $p 2>/dev/null || echo 0)"; done';
+        
+        const result = await CommandExecutor.shell(args.device_id, cmd);
 
-        if (!byNameResult.success) {
+        if (!result.success && result.stderr.includes('No such file')) {
           throw new Error(
-            `Failed to list partitions: ${byNameResult.stderr}\n\n` +
+            `Failed to list partitions: ${result.stderr}\n\n` +
             `Device may not support /dev/block/by-name/ structure.`
           );
         }
 
-        // Parse partition symbolic links
-        // Format: "lrwxrwxrwx 1 root root 21 2024-01-01 00:00 boot_a -> /dev/block/sda12"
-        const lines = byNameResult.stdout.split('\n');
+        const lines = result.stdout.split('\n');
         const partitions: PartitionInfo[] = [];
 
         for (const line of lines) {
-          const match = line.match(/([a-zA-Z0-9_-]+)\s*->\s*(\/dev\/block\/[a-zA-Z0-9_-]+)/);
-          if (match) {
-            const partitionName = match[1];
-            const blockDevice = match[2];
+          if (!line.trim() || line.includes('*')) continue;
+          
+          const parts = line.split('|');
+          if (parts.length < 3) continue;
 
-            // Get partition size
-            let sizeBytes = 0;
-            const sizeResult = await CommandExecutor.shell(
-              args.device_id,
-              `blockdev --getsize64 ${blockDevice} 2>/dev/null || echo 0`
-            );
+          const [name, blockDevice, sizeStr] = parts;
+          
+          // Determine if partition is critical
+          const critical = SafetyValidator.isCriticalPartition(name);
+          const sizeBytes = parseInt(sizeStr, 10) || 0;
 
-            if (sizeResult.success) {
-              sizeBytes = parseInt(sizeResult.stdout.trim(), 10) || 0;
-            }
-
-            // Determine if partition is critical
-            const critical = SafetyValidator.isCriticalPartition(partitionName);
-
-            partitions.push({
-              name: partitionName,
-              device: partitionName,
-              blockDevice,
-              sizeBytes,
-              sizeHuman: formatBytes(sizeBytes),
-              critical
-            });
-          }
+          partitions.push({
+            name,
+            device: name,
+            blockDevice,
+            sizeBytes,
+            sizeHuman: formatBytes(sizeBytes),
+            critical
+          });
         }
 
         if (partitions.length === 0) {
@@ -790,42 +778,42 @@ Examples:
           return JSON.stringify(partitions, null, 2);
         }
 
-        let result = `# Device Partitions\n\n`;
-        result += `**Device**: ${args.device_id}\n`;
-        result += `**Total Partitions**: ${partitions.length}\n\n`;
+        let output = `# Device Partitions\n\n`;
+        output += `**Device**: ${args.device_id}\n`;
+        output += `**Total Partitions**: ${partitions.length}\n\n`;
 
         if (args.detail === 'detailed') {
-          result += `| Name | Size | Block Device | Critical |\n`;
-          result += `|------|------|--------------|----------|\n`;
+          output += `| Name | Size | Block Device | Critical |\n`;
+          output += `|------|------|--------------|----------|\n`;
 
           for (const partition of partitions) {
             const criticalMark = partition.critical ? '⚠️ YES' : 'No';
-            result += `| ${partition.name} | ${partition.sizeHuman} | ${partition.blockDevice} | ${criticalMark} |\n`;
+            output += `| ${partition.name} | ${partition.sizeHuman} | ${partition.blockDevice} | ${criticalMark} |\n`;
           }
         } else {
           // Concise: group by critical status
-          const critical = partitions.filter(p => p.critical);
+          const criticalPartitions = partitions.filter(p => p.critical);
           const nonCritical = partitions.filter(p => !p.critical);
 
-          if (critical.length > 0) {
-            result += `**Critical Partitions** (⚠️ ${critical.length}):\n`;
-            for (const p of critical) {
-              result += `- **${p.name}**: ${p.sizeHuman}\n`;
+          if (criticalPartitions.length > 0) {
+            output += `**Critical Partitions** (⚠️ ${criticalPartitions.length}):\n`;
+            for (const p of criticalPartitions) {
+              output += `- **${p.name}**: ${p.sizeHuman}\n`;
             }
-            result += `\n`;
+            output += `\n`;
           }
 
           if (nonCritical.length > 0) {
-            result += `**Other Partitions** (${nonCritical.length}):\n`;
+            output += `**Other Partitions** (${nonCritical.length}):\n`;
             for (const p of nonCritical) {
-              result += `- ${p.name}: ${p.sizeHuman}\n`;
+              output += `- ${p.name}: ${p.sizeHuman}\n`;
             }
           }
         }
 
-        result += `\n💡 **Tip**: Critical partitions require extra caution when dumping or flashing.`;
+        output += `\n💡 **Tip**: Critical partitions require extra caution when dumping or flashing.`;
 
-        return result;
+        return output;
       });
     }
   },
@@ -1038,14 +1026,17 @@ Examples:
           const durationMs = Date.now() - startTime;
           const durationSeconds = Math.round(durationMs / 1000);
 
-          // Calculate SHA256 if requested
+          // Calculate SHA256 if requested (streaming to avoid OOM for large partitions)
           let sha256: string | undefined;
           if (args.calculate_checksum) {
             console.error('Calculating SHA256 checksum...');
-            const fileBuffer = fs.readFileSync(args.output_path);
-            const hashSum = crypto.createHash('sha256');
-            hashSum.update(fileBuffer);
-            sha256 = hashSum.digest('hex');
+            sha256 = await new Promise<string>((resolve, reject) => {
+              const hash = crypto.createHash('sha256');
+              const stream = fs.createReadStream(args.output_path);
+              stream.on('data', (chunk) => hash.update(chunk));
+              stream.on('end', () => resolve(hash.digest('hex')));
+              stream.on('error', reject);
+            });
           }
 
           // Cleanup temp file
