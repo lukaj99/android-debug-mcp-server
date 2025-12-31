@@ -22,24 +22,36 @@ export class DeviceManager {
 
     const devices: Device[] = [];
 
-    // Get ADB devices
-    try {
-      const adbResult = await CommandExecutor.adb(null, ['devices', '-l']);
-      const adbDevices = this.parseAdbDevices(adbResult.stdout);
-      devices.push(...adbDevices);
-    } catch (error) {
+    // Run discovery in parallel
+    const [adbResult, fastbootResult] = await Promise.allSettled([
+      CommandExecutor.adb(null, ['devices', '-l']),
+      CommandExecutor.fastboot(null, ['devices', '-l'])
+    ]);
+
+    // Process ADB results
+    if (adbResult.status === 'fulfilled') {
+      try {
+        const adbDevices = this.parseAdbDevices(adbResult.value.stdout);
+        devices.push(...adbDevices);
+      } catch (error) {
+        console.error(`Failed to parse ADB output: ${error}`);
+      }
+    } else {
       // ADB not available - log for debugging but continue
-      console.error(`ADB devices check failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`ADB devices check failed: ${adbResult.reason instanceof Error ? adbResult.reason.message : String(adbResult.reason)}`);
     }
 
-    // Get Fastboot devices
-    try {
-      const fastbootResult = await CommandExecutor.fastboot(null, ['devices', '-l']);
-      const fastbootDevices = this.parseFastbootDevices(fastbootResult.stdout);
-      devices.push(...fastbootDevices);
-    } catch (error) {
+    // Process Fastboot results
+    if (fastbootResult.status === 'fulfilled') {
+      try {
+        const fastbootDevices = this.parseFastbootDevices(fastbootResult.value.stdout);
+        devices.push(...fastbootDevices);
+      } catch (error) {
+        console.error(`Failed to parse Fastboot output: ${error}`);
+      }
+    } else {
       // Fastboot not available - log for debugging but continue
-      console.error(`Fastboot devices check failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Fastboot devices check failed: ${fastbootResult.reason instanceof Error ? fastbootResult.reason.message : String(fastbootResult.reason)}`);
     }
 
     // Update cache
