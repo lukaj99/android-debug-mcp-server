@@ -17,6 +17,15 @@ export const CONFIG = {
   CHARACTER_LIMIT: parseInt(process.env.CHARACTER_LIMIT || '25000', 10),
   MAX_LOG_LINES: parseInt(process.env.MAX_LOG_LINES || '1000', 10),
 
+  // Timing
+  DEVICE_CACHE_TTL: 5000,              // 5 seconds - device list cache
+  TOKEN_EXPIRY: 300000,                // 5 minutes - confirmation token validity
+  WIRELESS_CONNECT_DELAY: 2000,        // 2 seconds - wait after TCP/IP switch
+
+  // Limits
+  MAX_RECORDING_DURATION: 180,         // 180 seconds - Android screenrecord limit
+  DD_BLOCK_SIZE: 4096,                 // 4KB - block size for partition dumps
+
   // Tool annotations
   READ_ONLY_HINT: true,
   IDEMPOTENT_HINT: true,

@@ -8,6 +8,7 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter } from '../utils/formatter.js';
 import { ErrorHandler } from '../utils/error-handler.js';
 import { PlatformToolsManager } from '../utils/platform-tools-manager.js';
+import { CONFIG } from '../config.js';
 import type { DeviceInfo, RebootMode, DeviceHealth } from '../types.js';
 
 // Schemas
@@ -314,7 +315,7 @@ Examples:
         }
 
         // Wait a moment for TCP/IP mode to initialize
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, CONFIG.WIRELESS_CONNECT_DELAY));
 
         // Connect wirelessly
         const connect = await CommandExecutor.adb(null, ['connect', `${ip}:${args.port}`]);

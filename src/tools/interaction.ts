@@ -8,6 +8,7 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter, formatBytes } from '../utils/formatter.js';
 import { SafetyValidator } from '../utils/validator.js';
 import { ErrorHandler } from '../utils/error-handler.js';
+import { CONFIG } from '../config.js';
 import type { ScreenInfo, Screenshot, Recording } from '../types.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -635,9 +636,9 @@ Examples:
         await DeviceManager.requireMode(args.device_id, 'device');
 
         // Validate duration
-        if (args.duration_seconds > 180) {
+        if (args.duration_seconds > CONFIG.MAX_RECORDING_DURATION) {
           throw new Error(
-            `Maximum recording duration is 180 seconds (Android limitation). ` +
+            `Maximum recording duration is ${CONFIG.MAX_RECORDING_DURATION} seconds (Android limitation). ` +
             `Requested: ${args.duration_seconds} seconds`
           );
         }

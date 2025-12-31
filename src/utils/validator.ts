@@ -38,9 +38,9 @@ export class SafetyValidator {
     const now = Date.now();
     const age = now - timestamp;
 
-    if (age > 60000) { // 60 seconds
+    if (age > CONFIG.TOKEN_EXPIRY) {
       throw new Error(
-        `Confirmation token expired (${Math.round(age / 1000)}s old). Generate a new token: ${expectedPrefix}${now}`
+        `Confirmation token expired (${Math.round(age / 1000)}s old, max ${CONFIG.TOKEN_EXPIRY / 1000}s). Generate a new token: ${expectedPrefix}${now}`
       );
     }
 

@@ -3,13 +3,12 @@
  */
 
 import { CommandExecutor } from './executor.js';
-import { ERROR_MESSAGES } from '../config.js';
+import { CONFIG, ERROR_MESSAGES } from '../config.js';
 import type { Device, DeviceMode } from '../types.js';
 
 export class DeviceManager {
   private static deviceCache: Map<string, Device> = new Map();
   private static lastRefresh = 0;
-  private static CACHE_TTL = 5000; // 5 seconds
 
   /**
    * List all connected devices (ADB + Fastboot)
@@ -17,7 +16,7 @@ export class DeviceManager {
   static async listDevices(forceRefresh = false): Promise<Device[]> {
     const now = Date.now();
 
-    if (!forceRefresh && now - this.lastRefresh < this.CACHE_TTL) {
+    if (!forceRefresh && now - this.lastRefresh < CONFIG.DEVICE_CACHE_TTL) {
       return Array.from(this.deviceCache.values());
     }
 

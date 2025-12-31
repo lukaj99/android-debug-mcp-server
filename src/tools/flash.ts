@@ -8,6 +8,7 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter, formatBytes } from '../utils/formatter.js';
 import { SafetyValidator } from '../utils/validator.js';
 import { ErrorHandler } from '../utils/error-handler.js';
+import { CONFIG } from '../config.js';
 import type { PartitionInfo, PartitionBackup } from '../types.js';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -1005,7 +1006,7 @@ Examples:
           // Dump partition using dd with root
           const ddResult = await CommandExecutor.shell(
             args.device_id,
-            `su -c "dd if=${partition.blockDevice} of=${tempPath} bs=4096"`
+            `su -c "dd if=${partition.blockDevice} of=${tempPath} bs=${CONFIG.DD_BLOCK_SIZE}"`
           );
 
           if (!ddResult.success) {
