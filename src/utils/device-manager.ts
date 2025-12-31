@@ -27,8 +27,9 @@ export class DeviceManager {
       const adbResult = await CommandExecutor.adb(null, ['devices', '-l']);
       const adbDevices = this.parseAdbDevices(adbResult.stdout);
       devices.push(...adbDevices);
-    } catch {
-      // ADB not available, skip
+    } catch (error) {
+      // ADB not available - log for debugging but continue
+      console.error(`ADB devices check failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     // Get Fastboot devices
@@ -36,8 +37,9 @@ export class DeviceManager {
       const fastbootResult = await CommandExecutor.fastboot(null, ['devices', '-l']);
       const fastbootDevices = this.parseFastbootDevices(fastbootResult.stdout);
       devices.push(...fastbootDevices);
-    } catch {
-      // Fastboot not available, skip
+    } catch (error) {
+      // Fastboot not available - log for debugging but continue
+      console.error(`Fastboot devices check failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     // Update cache
@@ -137,7 +139,9 @@ export class DeviceManager {
     try {
       const device = await this.validateDevice(deviceId);
       return device.mode === mode;
-    } catch {
+    } catch (error) {
+      // Device not found or validation failed - return false as expected behavior
+      console.error(`Device mode check failed for ${deviceId}: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
