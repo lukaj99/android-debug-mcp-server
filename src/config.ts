@@ -18,7 +18,7 @@ export const CONFIG = {
   MAX_LOG_LINES: parseInt(process.env.MAX_LOG_LINES || '1000', 10),
 
   // Timing
-  DEVICE_CACHE_TTL: 5000,              // 5 seconds - device list cache
+  DEVICE_CACHE_TTL: 30000,             // 30 seconds - device list cache
   TOKEN_EXPIRY: 300000,                // 5 minutes - confirmation token validity
   WIRELESS_CONNECT_DELAY: 2000,        // 2 seconds - wait after TCP/IP switch
 
