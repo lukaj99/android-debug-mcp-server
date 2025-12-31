@@ -8,9 +8,10 @@ import type { OutputFormat, DetailLevel } from '../types.js';
 export class ResponseFormatter {
   /**
    * Format response based on output type
+   * Accepts unknown data and performs runtime type checking
    */
   static format(
-    data: any,
+    data: unknown,
     format: OutputFormat = 'markdown',
     detail: DetailLevel = 'concise'
   ): string {
@@ -34,11 +35,11 @@ export class ResponseFormatter {
   /**
    * Format data as Markdown
    */
-  private static formatMarkdown(data: any, detail: DetailLevel): string {
+  private static formatMarkdown(data: unknown, detail: DetailLevel): string {
     if (Array.isArray(data)) {
       return this.formatArray(data, detail);
     } else if (typeof data === 'object' && data !== null) {
-      return this.formatObject(data, detail);
+      return this.formatObject(data as Record<string, unknown>, detail);
     } else {
       return String(data);
     }
@@ -47,14 +48,14 @@ export class ResponseFormatter {
   /**
    * Format array as Markdown list/table
    */
-  private static formatArray(items: any[], detail: DetailLevel): string {
+  private static formatArray(items: unknown[], detail: DetailLevel): string {
     if (items.length === 0) {
       return '*No items found*';
     }
 
     // If items are objects, create table
     if (typeof items[0] === 'object' && items[0] !== null) {
-      return this.formatTable(items, detail);
+      return this.formatTable(items as Record<string, unknown>[], detail);
     }
 
     // Otherwise, create bulleted list
@@ -64,7 +65,7 @@ export class ResponseFormatter {
   /**
    * Format object as Markdown
    */
-  private static formatObject(obj: any, _detail: DetailLevel): string {
+  private static formatObject(obj: Record<string, unknown>, _detail: DetailLevel): string {
     const lines: string[] = [];
 
     for (const [key, value] of Object.entries(obj)) {
@@ -78,7 +79,7 @@ export class ResponseFormatter {
   /**
    * Format array of objects as Markdown table
    */
-  private static formatTable(items: any[], detail: DetailLevel): string {
+  private static formatTable(items: Record<string, unknown>[], detail: DetailLevel): string {
     if (items.length === 0) return '*No items found*';
 
     // Get all unique keys
@@ -123,7 +124,7 @@ export class ResponseFormatter {
   /**
    * Format a single value for display
    */
-  private static formatValue(value: any, maxLength = 100): string {
+  private static formatValue(value: unknown, maxLength = 100): string {
     if (value === null || value === undefined) {
       return '-';
     }
@@ -132,11 +133,12 @@ export class ResponseFormatter {
       return value ? '✓' : '✗';
     }
 
+    let str: string;
     if (typeof value === 'object') {
-      value = JSON.stringify(value);
+      str = JSON.stringify(value);
+    } else {
+      str = String(value);
     }
-
-    let str = String(value);
 
     // Truncate if too long
     if (str.length > maxLength) {
@@ -160,7 +162,7 @@ export class ResponseFormatter {
   /**
    * Format success message
    */
-  static success(message: string, data?: any): string {
+  static success(message: string, data?: unknown): string {
     let result = `✅ **Success**: ${message}\n\n`;
 
     if (data) {

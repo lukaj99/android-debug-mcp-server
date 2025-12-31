@@ -8,7 +8,7 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter } from '../utils/formatter.js';
 import { ErrorHandler } from '../utils/error-handler.js';
 import { PlatformToolsManager } from '../utils/platform-tools-manager.js';
-import type { DeviceInfo, RebootMode } from '../types.js';
+import type { DeviceInfo, RebootMode, DeviceHealth } from '../types.js';
 
 // Schemas
 export const ListDevicesSchema = z.object({
@@ -421,7 +421,7 @@ Examples:
       return ErrorHandler.wrap(async () => {
         await DeviceManager.validateDevice(args.device_id);
 
-        const health: any = {};
+        const health: DeviceHealth = {};
 
         // Battery info
         const battery = await CommandExecutor.shell(args.device_id, 'dumpsys battery');

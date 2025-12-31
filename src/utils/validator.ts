@@ -60,7 +60,7 @@ export class SafetyValidator {
    * Check if operation is destructive
    */
   static isDestructive(operation: string): boolean {
-    return CONFIG.DESTRUCTIVE_OPERATIONS.includes(operation as any);
+    return (CONFIG.DESTRUCTIVE_OPERATIONS as readonly string[]).includes(operation);
   }
 
   /**

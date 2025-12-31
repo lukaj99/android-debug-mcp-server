@@ -8,7 +8,7 @@ import { CommandExecutor } from '../utils/executor.js';
 import { ResponseFormatter } from '../utils/formatter.js';
 import { SafetyValidator } from '../utils/validator.js';
 import { ErrorHandler } from '../utils/error-handler.js';
-import type { AppFilter, Package } from '../types.js';
+import type { AppFilter, Package, AppInfo } from '../types.js';
 
 // Schemas
 export const ListPackagesSchema = z.object({
@@ -392,7 +392,7 @@ Examples:
         const output = result.stdout;
 
         // Parse dumpsys output
-        const info: any = {
+        const info: AppInfo = {
           package_name: args.package_name
         };
 

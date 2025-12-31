@@ -63,7 +63,9 @@ export function createServer(): Server {
     }
 
     try {
-      const result = await tool.handler(request.params.arguments as any || {});
+      // Type assertion: MCP SDK provides unknown args, each handler validates with Zod internally
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (tool.handler as (args: unknown) => Promise<string>)(request.params.arguments ?? {});
       return {
         content: [
           {

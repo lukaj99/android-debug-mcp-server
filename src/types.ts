@@ -112,6 +112,53 @@ export interface Recording {
   timestamp: string;
 }
 
+export interface BatteryHealth {
+  level: string;
+  temperature: string;
+  status: string;
+  health: string;
+}
+
+export interface StorageInfo {
+  filesystem: string;
+  size: string;
+  used: string;
+  available: string;
+  use_percent: string;
+  mounted: string;
+}
+
+export interface MemoryHealth {
+  total: string;
+  used: string;
+  available: string;
+  usage_percent: string;
+}
+
+export interface DeviceHealth {
+  battery?: BatteryHealth;
+  storage?: StorageInfo[];
+  memory?: MemoryHealth;
+  uptime?: string;
+}
+
+export interface AppInfo {
+  package_name: string;
+  version_name?: string;
+  version_code?: string;
+  first_install?: string;
+  last_update?: string;
+  enabled?: boolean;
+  permissions?: string[];
+}
+
+/**
+ * Type for data that can be formatted by ResponseFormatter
+ * Formatter handles runtime type checking for flexibility
+ */
+export type FormattableValue = unknown;
+export type FormattableData = Record<string, unknown>;
+
 export interface FlashOptions {
   wipeData?: boolean;
   disableVerity?: boolean;
