@@ -78,30 +78,7 @@ export const DumpPartitionSchema = z.object({
 // Tool implementations
 export const flashTools = {
   flash_partition: {
-    description: `Flash partition image to device.
-
-⚠️ DESTRUCTIVE OPERATION - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Flashes a partition image (.img file) to the specified partition. Device must be in fastboot mode.
-
-Common partitions:
-- boot / boot_a / boot_b: Boot images (kernel)
-- system / system_a / system_b: System partition
-- vendor / vendor_a / vendor_b: Vendor partition
-- recovery: Recovery partition
-- vbmeta / vbmeta_a / vbmeta_b: Verified boot metadata
-
-SAFETY REQUIREMENTS:
-1. Device must be in fastboot/bootloader mode
-2. Bootloader must be unlocked
-3. Must provide valid confirmation token
-4. Wrong partition can brick device - double check!
-
-Generate token: CONFIRM_FLASH_PARTITION_<current_timestamp>
-
-Examples:
-- flash_partition(device_id="ABC123", partition="boot", image_path="/images/boot.img", confirm_token="CONFIRM_FLASH_PARTITION_1699999999000")
-- flash_partition(device_id="ABC123", partition="vendor_a", image_path="/factory/vendor.img", confirm_token="CONFIRM_FLASH_PARTITION_1699999999000")`,
+    description: `⚠️ DESTRUCTIVE - Flash partition image. Requires fastboot mode, unlocked bootloader, and CONFIRM_FLASH_PARTITION_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -158,15 +135,7 @@ Examples:
   },
 
   boot_image: {
-    description: `Temporarily boot image without flashing.
-
-Boots a boot image (kernel + ramdisk) temporarily without permanently flashing it. Device will revert to original boot image on next reboot. Useful for testing custom kernels, recovery images, or rooted boot images without permanent changes.
-
-Device must be in fastboot mode. No confirmation token required (non-destructive).
-
-Examples:
-- boot_image(device_id="ABC123", image_path="/images/twrp-recovery.img") → Boot TWRP temporarily
-- boot_image(device_id="ABC123", image_path="/magisk/magisk_patched.img") → Boot Magisk-patched boot`,
+    description: `Temporarily boot image without flashing (reverts on reboot). Requires fastboot mode. Non-destructive.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -210,33 +179,7 @@ Examples:
   },
 
   unlock_bootloader: {
-    description: `Unlock device bootloader.
-
-⚠️ EXTREMELY DESTRUCTIVE - WIPES ALL DATA - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Unlocking the bootloader:
-- ERASES ALL USER DATA (factory reset)
-- ERASES ALL APPS
-- ERASES ALL PHOTOS, VIDEOS, DOCUMENTS
-- VOIDS WARRANTY on some devices
-- May trip KNOX/SafetyNet on Samsung/Google devices
-- CANNOT BE UNDONE easily
-
-REQUIRED:
-- Device in fastboot mode
-- OEM unlocking enabled (Settings > Developer Options > OEM unlocking)
-- Valid confirmation token
-
-This enables:
-- Flashing custom ROMs
-- Installing custom recovery (TWRP)
-- Gaining root access (Magisk)
-- Flashing custom kernels
-
-Generate token: CONFIRM_UNLOCK_BOOTLOADER_<current_timestamp>
-
-Example:
-- unlock_bootloader(device_id="ABC123", confirm_token="CONFIRM_UNLOCK_BOOTLOADER_1699999999000")`,
+    description: `⚠️ WIPES ALL DATA - Unlock bootloader. Requires OEM unlock enabled, fastboot mode, and CONFIRM_UNLOCK_BOOTLOADER_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -312,25 +255,7 @@ Example:
   },
 
   lock_bootloader: {
-    description: `Lock device bootloader.
-
-⚠️ DESTRUCTIVE OPERATION - WIPES ALL DATA - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Locking the bootloader:
-- ERASES ALL USER DATA (factory reset)
-- ERASES ALL APPS
-- ERASES ALL PHOTOS, VIDEOS, DOCUMENTS
-- Restores device security
-- Re-enables SafetyNet/KNOX (may still be tripped)
-- May restore warranty
-
-WARNING: Locking bootloader with custom ROM/recovery can BRICK device!
-ONLY lock if device has stock firmware installed.
-
-Generate token: CONFIRM_LOCK_BOOTLOADER_<current_timestamp>
-
-Example:
-- lock_bootloader(device_id="ABC123", confirm_token="CONFIRM_LOCK_BOOTLOADER_1699999999000")`,
+    description: `⚠️ WIPES ALL DATA - Lock bootloader. WARNING: Can brick if custom ROM installed! Requires CONFIRM_LOCK_BOOTLOADER_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -384,27 +309,7 @@ Example:
   },
 
   erase_partition: {
-    description: `Erase partition on device.
-
-⚠️ DESTRUCTIVE OPERATION - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Completely erases the specified partition. Data is unrecoverable.
-
-WARNING: Erasing critical partitions can brick device!
-
-Safe to erase:
-- cache: Cache partition (safe)
-- userdata: User data (same as factory reset)
-
-Dangerous to erase:
-- boot: Will not boot
-- system: Will not boot
-- recovery: Cannot enter recovery
-
-Generate token: CONFIRM_ERASE_PARTITION_<current_timestamp>
-
-Example:
-- erase_partition(device_id="ABC123", partition="cache", confirm_token="CONFIRM_ERASE_PARTITION_1699999999000")`,
+    description: `⚠️ DESTRUCTIVE - Erase partition completely. Safe: cache, userdata. Dangerous: boot, system. Requires CONFIRM_ERASE_PARTITION_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -454,22 +359,7 @@ Example:
   },
 
   format_partition: {
-    description: `Format partition with filesystem.
-
-⚠️ DESTRUCTIVE OPERATION - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Formats partition with specified filesystem. Different from erase (creates filesystem structure).
-
-Common filesystems:
-- ext4: Default Linux filesystem
-- f2fs: Flash-friendly filesystem (faster on flash storage)
-
-Typically used for userdata partition. Be very careful with other partitions.
-
-Generate token: CONFIRM_FORMAT_PARTITION_<current_timestamp>
-
-Example:
-- format_partition(device_id="ABC123", partition="userdata", fs_type="ext4", confirm_token="CONFIRM_FORMAT_PARTITION_1699999999000")`,
+    description: `⚠️ DESTRUCTIVE - Format partition with filesystem (ext4, f2fs). Requires CONFIRM_FORMAT_PARTITION_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -528,23 +418,7 @@ Example:
   },
 
   set_active_slot: {
-    description: `Set active A/B partition slot.
-
-For devices with A/B partitions, switch between slots. No data loss.
-
-Slots:
-- a: Set slot A as active
-- b: Set slot B as active
-- all: Mark both slots as active (unusual)
-- other: Switch to the non-current slot
-
-A/B partitions allow seamless updates. System updates to inactive slot, then switches.
-
-No confirmation token required (non-destructive).
-
-Examples:
-- set_active_slot(device_id="ABC123", slot="b") → Switch to slot B
-- set_active_slot(device_id="ABC123", slot="other") → Switch to other slot`,
+    description: `Set active A/B partition slot (a, b, all, other). Non-destructive, no confirmation needed.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -587,36 +461,7 @@ Examples:
   },
 
   flash_all: {
-    description: `Flash complete factory image.
-
-⚠️ EXTREMELY DESTRUCTIVE - REQUIRES CONFIRMATION TOKEN ⚠️
-
-Flashes all partitions from factory image directory. This is a complete device restoration.
-
-What gets flashed:
-- Bootloader
-- Radio/modem
-- Boot image
-- System partition
-- Vendor partition
-- All other partitions
-
-Options:
-- wipe_data: true (default) = Factory reset, wipe all user data
-- wipe_data: false = Keep user data (may cause boot issues)
-
-Device will be completely restored to factory state if wipe_data=true.
-
-REQUIREMENTS:
-- Device in fastboot mode
-- Bootloader unlocked
-- Factory image directory with all .img files
-- flash-all script or equivalent images
-
-Generate token: CONFIRM_FLASH_ALL_<current_timestamp>
-
-Example:
-- flash_all(device_id="ABC123", image_directory="/factory-images/pixel-7-tq1a/", wipe_data=true, confirm_token="CONFIRM_FLASH_ALL_1699999999000")`,
+    description: `⚠️ WIPES ALL DATA - Flash complete factory image (all partitions). Requires unlocked bootloader and CONFIRM_FLASH_ALL_<timestamp> token.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -673,32 +518,7 @@ Example:
   },
 
   list_partitions: {
-    description: `List all device partitions with details.
-
-Returns comprehensive partition information:
-- Partition name (boot, system, vendor, etc.)
-- Block device path
-- Size in bytes and human-readable format
-- Critical partition marking (system-critical partitions)
-
-Critical partitions are marked to warn before dangerous operations. These include:
-- boot, system, vendor (core OS)
-- userdata, metadata (user data)
-- vbmeta (verified boot)
-- bootloader, radio/modem
-
-Useful for:
-- Identifying which partitions to backup
-- Understanding device storage layout
-- Planning partition operations
-- Verifying A/B slot configurations
-
-Requires: Android device in ADB mode
-
-Examples:
-- list_partitions(device_id="ABC123") → List all partitions
-- list_partitions(device_id="ABC123", detail="detailed") → Show full details
-- list_partitions(device_id="ABC123", format="json") → Structured data`,
+    description: `List all device partitions with name, size, block device, and critical status. Requires ADB mode.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -819,48 +639,7 @@ Examples:
   },
 
   dump_partition: {
-    description: `Backup partition to local file.
-
-⚠️ REQUIRES ROOT ACCESS & CONFIRMATION TOKEN ⚠️
-
-Creates a complete backup of the specified partition to your PC. This is essential before:
-- Flashing modified boot images
-- Installing custom ROMs
-- Experimenting with system modifications
-- OTA updates that might fail
-
-Features:
-- Complete partition backup
-- Optional SHA256 checksum verification
-- Progress indication for large partitions
-- Automatic cleanup of temp files
-- Critical partition warnings
-
-Safety:
-- Requires root access (su)
-- Requires confirmation token (DESTRUCTIVE category)
-- Validates partition exists
-- Checks available storage
-- Warns for critical partitions
-
-Process:
-1. Validates root access
-2. Checks partition exists
-3. Copies partition to device storage (dd)
-4. Pulls to PC via ADB
-5. Calculates checksum (optional)
-6. Cleans up temp files
-
-⚠️ **Warning**: Large partitions (system ~2GB+) take significant time!
-
-Requires: 
-- Rooted device in ADB mode
-- Sufficient storage on device and PC
-- Root permissions granted to shell
-
-Examples:
-- dump_partition(device_id="ABC123", partition_name="boot_a", output_path="/backups/boot_a.img", confirm_token="CONFIRM_DUMP_PARTITION_1705334400000")
-- dump_partition(device_id="ABC123", partition_name="vendor_b", output_path="/backups/vendor_b.img", confirm_token="CONFIRM_DUMP_PARTITION_1705334400000", calculate_checksum=false)`,
+    description: `⚠️ Backup partition to local file. Requires root + CONFIRM_DUMP_PARTITION_<timestamp> token. Large partitions take time.`,
     inputSchema: {
       type: 'object' as const,
       properties: {

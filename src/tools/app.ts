@@ -55,22 +55,7 @@ export const ManageAppStateSchema = z.object({
 // Tool implementations
 export const appTools = {
   list_packages: {
-    description: `List installed packages on device.
-
-Filter options:
-- all: All packages (system + user)
-- user: Only user-installed apps
-- system: Only system apps
-- enabled: Only enabled apps
-- disabled: Only disabled apps
-- third-party: Non-system apps
-
-Returns package name, path, version, size, and enabled status.
-
-Examples:
-- list_packages(device_id="ABC123") → User-installed apps
-- list_packages(device_id="ABC123", filter="system") → System apps
-- list_packages(device_id="ABC123", filter="disabled") → Disabled apps`,
+    description: `List installed packages. Filters: all, user (default), system, enabled, disabled, third-party.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -143,20 +128,7 @@ Examples:
   },
 
   install_app: {
-    description: `Install APK on device.
-
-Options:
-- replace: Replace existing app (otherwise fails if app exists)
-- downgrade: Allow downgrade to older version
-- grant_permissions: Automatically grant all runtime permissions
-- allow_test_packages: Allow installing test packages
-
-The APK file must be accessible on the local machine running this server.
-
-Examples:
-- install_app(device_id="ABC123", apk_path="/path/to/app.apk")
-- install_app(device_id="ABC123", apk_path="/path/to/app.apk", replace=true)
-- install_app(device_id="ABC123", apk_path="/path/to/app.apk", grant_permissions=true)`,
+    description: `Install APK. Options: replace (update), downgrade, grant_permissions, allow_test_packages.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -224,14 +196,7 @@ Examples:
   },
 
   uninstall_app: {
-    description: `Uninstall app from device.
-
-Options:
-- keep_data: Keep app data and cache directories (default: remove everything)
-
-Examples:
-- uninstall_app(device_id="ABC123", package_name="com.example.app")
-- uninstall_app(device_id="ABC123", package_name="com.example.app", keep_data=true)`,
+    description: `Uninstall app by package name. Use keep_data=true to preserve app data.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -275,17 +240,7 @@ Examples:
   },
 
   backup_app: {
-    description: `Backup app APK and data from device.
-
-Creates a backup of:
-- APK file (application package)
-- App data (if accessible)
-
-The backup will be saved to the specified output_path on the local machine.
-
-Examples:
-- backup_app(device_id="ABC123", package_name="com.example.app", output_path="/backups/")
-- backup_app(device_id="ABC123", package_name="com.facebook.katana", output_path="./app-backups/")`,
+    description: `Backup app APK to local machine. Saves APK to specified output directory.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -343,19 +298,7 @@ Examples:
   },
 
   get_app_info: {
-    description: `Get detailed information about an installed app.
-
-Returns:
-- Package name and version
-- Install location and date
-- Permissions requested
-- Data directory paths
-- APK size and signatures
-- Enabled/disabled status
-
-Examples:
-- get_app_info(device_id="ABC123", package_name="com.android.chrome")
-- get_app_info(device_id="ABC123", package_name="com.example.app", format="json")`,
+    description: `Get app details: version, install date, permissions, data paths, and enabled status.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -421,23 +364,7 @@ Examples:
   },
 
   manage_app_state: {
-    description: `Manage app state and permissions.
-
-Actions:
-- enable: Enable disabled app
-- disable: Disable app (app won't run)
-- clear-data: Clear app data and cache
-- force-stop: Force stop running app
-- grant-permission: Grant specific runtime permission
-- revoke-permission: Revoke specific runtime permission
-
-Permission format: android.permission.CAMERA, android.permission.LOCATION, etc.
-
-Examples:
-- manage_app_state(device_id="ABC123", package_name="com.example.app", action="force-stop")
-- manage_app_state(device_id="ABC123", package_name="com.example.app", action="disable")
-- manage_app_state(device_id="ABC123", package_name="com.example.app", action="grant-permission", permission="android.permission.CAMERA")
-- manage_app_state(device_id="ABC123", package_name="com.example.app", action="clear-data")`,
+    description: `Manage app state. Actions: enable, disable, clear-data, force-stop, grant-permission, revoke-permission.`,
     inputSchema: {
       type: 'object' as const,
       properties: {

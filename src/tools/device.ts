@@ -67,14 +67,7 @@ export const ForwardPortSchema = z.object({
 // Tool implementations
 export const deviceTools = {
   list_devices: {
-    description: `List all connected Android devices.
-
-Shows devices in all modes: ADB (device/unauthorized/offline), Fastboot (bootloader), recovery, and sideload.
-Returns device ID, connection mode, model, and status.
-
-Examples:
-- list_devices() → See all connected devices
-- list_devices(format="json") → Get structured data`,
+    description: `List all connected Android devices (ADB, Fastboot, recovery modes). Returns device ID, mode, model, and status.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -106,17 +99,7 @@ Examples:
   },
 
   get_device_info: {
-    description: `Get detailed information about a specific device.
-
-Returns comprehensive device details including:
-- Hardware: manufacturer, model, serial number
-- Software: Android version, SDK level, build ID
-- Status: root access, bootloader state, battery level
-- Network: IP address, wireless ADB status
-
-Examples:
-- get_device_info(device_id="ABC123") → Full device details
-- get_device_info(device_id="ABC123", detail="detailed") → All available fields`,
+    description: `Get device details: manufacturer, model, Android version, SDK, battery, root status, bootloader state, and network info.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -217,19 +200,7 @@ Examples:
   },
 
   reboot_device: {
-    description: `Reboot device to different modes.
-
-Available modes:
-- system: Normal reboot to Android
-- bootloader: Reboot to fastboot/bootloader mode
-- recovery: Reboot to recovery mode
-- fastboot: Reboot to fastboot mode
-- fastbootd: Reboot to fastbootd (userspace fastboot)
-- sideload: Reboot to recovery sideload mode
-
-Examples:
-- reboot_device(device_id="ABC123") → Reboot normally
-- reboot_device(device_id="ABC123", mode="bootloader") → Reboot to fastboot`,
+    description: `Reboot device. Modes: system (default), bootloader, recovery, fastboot, fastbootd, sideload.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -279,20 +250,7 @@ Examples:
   },
 
   connect_wireless: {
-    description: `Enable and connect to device via wireless ADB.
-
-This tool enables wireless ADB on a USB-connected device and connects to it wirelessly.
-Device must initially be connected via USB. After successful connection, you can disconnect USB cable.
-
-Steps performed:
-1. Enable TCP/IP mode on device
-2. Detect device IP address (if not provided)
-3. Connect wirelessly
-
-Examples:
-- connect_wireless(device_id="ABC123") → Auto-detect IP and connect
-- connect_wireless(device_id="ABC123", ip_address="192.168.1.100") → Connect to specific IP
-- connect_wireless(device_id="ABC123", port=5556) → Use custom port`,
+    description: `Enable wireless ADB on USB-connected device. Auto-detects IP if not provided. Port defaults to 5555.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -363,22 +321,7 @@ Examples:
   },
 
   get_device_logs: {
-    description: `Get device logs (logcat) with optional filtering.
-
-Returns recent system logs from the device. Useful for debugging apps and system issues.
-
-Filter examples:
-- "*:E" → Only errors
-- "*:W" → Warnings and above
-- "ActivityManager:I *:S" → Only ActivityManager info logs
-- "tag:priority" → Specific tag and priority
-
-Priorities: V (Verbose), D (Debug), I (Info), W (Warning), E (Error), F (Fatal), S (Silent)
-
-Examples:
-- get_device_logs(device_id="ABC123") → All recent logs
-- get_device_logs(device_id="ABC123", filter="*:E") → Only errors
-- get_device_logs(device_id="ABC123", filter="ActivityManager:*") → Activity manager logs`,
+    description: `Get device logs (logcat). Filter examples: "*:E" (errors), "*:W" (warnings+), "tag:priority".`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -415,18 +358,7 @@ Examples:
   },
 
   check_device_health: {
-    description: `Check device health and diagnostics.
-
-Returns comprehensive health information:
-- Battery: level, status, temperature, health
-- Storage: internal/external space available
-- Memory: RAM usage, available memory
-- Temperature: battery and CPU temperature
-- System: uptime, load average
-
-Examples:
-- check_device_health(device_id="ABC123") → Full health report
-- check_device_health(device_id="ABC123", format="json") → Structured data`,
+    description: `Check device health: battery (level, temp, status), storage, memory usage, and system uptime.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -503,20 +435,7 @@ Examples:
   },
 
   setup_platform_tools: {
-    description: `Download and install Android Platform Tools (ADB & Fastboot).
-
-This tool automatically downloads the latest version of Android Platform Tools from Google
-and installs them to ~/.android-debug-mcp/platform-tools/. The tools will be automatically
-used by all other commands.
-
-Platform-specific downloads:
-- macOS: darwin.zip
-- Linux: linux.zip  
-- Windows: windows.zip
-
-Examples:
-- setup_platform_tools() → Install if not already present
-- setup_platform_tools(force=true) → Re-download and reinstall`,
+    description: `Download and install Android Platform Tools (ADB/Fastboot) to ~/.android-debug-mcp/. Use force=true to reinstall.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -584,17 +503,7 @@ All commands will now use these tools automatically.`;
   },
 
   get_recent_crashes: {
-    description: `Get recent crash logs and tombstones from device.
-
-Collects:
-- Crash buffer from logcat (native and Java crashes)
-- Tombstone files (native crash dumps)
-
-Essential for debugging app crashes, ANRs, and system issues.
-
-Examples:
-- get_recent_crashes(device_id="ABC123") → Recent crashes
-- get_recent_crashes(device_id="ABC123", max_entries=5) → Last 5 crashes`,
+    description: `Get crash logs (logcat crash buffer), tombstones, and ANR traces. Essential for debugging crashes.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -703,19 +612,7 @@ Examples:
   },
 
   forward_port: {
-    description: `Manage ADB port forwarding for network debugging.
-
-Actions:
-- forward: Create a port forward from local to device
-- remove: Remove a specific port forward
-- list: List all active port forwards
-
-Use for debugging apps with network tools, remote debugging, etc.
-
-Examples:
-- forward_port(device_id="ABC123", local_port=8080, remote_port=8080) → Forward 8080
-- forward_port(device_id="ABC123", action="list") → List forwards
-- forward_port(device_id="ABC123", action="remove", local_port=8080) → Remove forward`,
+    description: `Manage ADB port forwarding. Actions: forward (create), remove, list. For network debugging.`,
     inputSchema: {
       type: 'object' as const,
       properties: {

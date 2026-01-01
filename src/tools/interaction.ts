@@ -64,26 +64,7 @@ export const DumpUIHierarchySchema = z.object({
 // Tool implementations
 export const interactionTools = {
   capture_screenshot: {
-    description: `Capture device screen as PNG image.
-
-This tool takes a screenshot of the current device screen state. Useful for:
-- AI visual analysis and debugging
-- Verifying UI state before/after actions
-- Documenting device state
-- Bug reporting and troubleshooting
-
-Options:
-- **output_path**: Save to specific location (default: temp dir with timestamp)
-- **return_base64**: Include base64-encoded image for direct AI analysis (default: false)
-
-⚠️ **Note**: Screenshots may capture sensitive information. Screen must be on.
-
-Requires: Android device in ADB mode, screen on
-
-Examples:
-- capture_screenshot(device_id="ABC123") → Save to temp dir
-- capture_screenshot(device_id="ABC123", output_path="/screenshots/state.png") → Save to specific path
-- capture_screenshot(device_id="ABC123", return_base64=true) → Get base64 data for AI analysis`,
+    description: `Capture screen as PNG. Use return_base64=true for AI analysis. Screen must be on.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -200,25 +181,7 @@ Examples:
   },
 
   get_screen_info: {
-    description: `Get device screen information.
-
-Returns comprehensive screen details:
-- Resolution (width x height in pixels)
-- Density (scale factor and DPI)
-- Orientation (portrait/landscape)
-- Rotation (0°, 90°, 180°, 270°)
-
-Useful for:
-- Planning touch coordinates for input_tap and input_swipe
-- Responsive UI automation
-- Understanding device display characteristics
-- Calculating relative positions
-
-Requires: Android device in ADB mode
-
-Examples:
-- get_screen_info(device_id="ABC123") → Get all screen details
-- get_screen_info(device_id="ABC123", format="json") → Structured data for automation`,
+    description: `Get screen resolution, density, orientation, and rotation. Useful for planning touch coordinates.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -308,24 +271,7 @@ Examples:
   },
 
   input_tap: {
-    description: `Simulate tap at specific screen coordinates.
-
-Sends a touch tap event at the specified (x, y) coordinates. The tap occurs at the exact pixel position specified.
-
-Coordinate system:
-- Origin (0, 0) is at top-left corner
-- X increases to the right
-- Y increases downward
-- Use get_screen_info() to determine screen dimensions
-
-Safety: Non-destructive, no confirmation required
-
-Requires: Android device in ADB mode, screen unlocked
-
-Examples:
-- input_tap(device_id="ABC123", x=540, y=1200) → Tap center of 1080x2400 screen
-- input_tap(device_id="ABC123", x=100, y=100) → Tap near top-left
-- input_tap(device_id="ABC123", x=960, y=540) → Tap specific button location`,
+    description: `Tap at (x, y) coordinates. Origin (0,0) = top-left. Use get_screen_info() for dimensions.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -379,30 +325,7 @@ Examples:
   },
 
   input_swipe: {
-    description: `Simulate swipe gesture between two points.
-
-Sends a touch swipe gesture from (x1, y1) to (x2, y2) over the specified duration. Useful for:
-- Scrolling (swipe up/down)
-- Navigation (swipe left/right)
-- Unlocking device (swipe up from bottom)
-- Dismissing notifications
-- Page turning
-
-Coordinate system: Same as input_tap (0,0 = top-left)
-
-Duration affects swipe speed:
-- Fast swipe: 100-200ms
-- Normal swipe: 300-500ms (default: 300ms)
-- Slow swipe: 1000ms+
-
-Safety: Non-destructive, no confirmation required
-
-Requires: Android device in ADB mode
-
-Examples:
-- input_swipe(device_id="ABC123", x1=540, y1=2000, x2=540, y2=800) → Swipe up (unlock/scroll)
-- input_swipe(device_id="ABC123", x1=900, y1=1200, x2=180, y2=1200) → Swipe left
-- input_swipe(device_id="ABC123", x1=540, y1=800, x2=540, y2=2000, duration_ms=500) → Slow swipe down`,
+    description: `Swipe from (x1,y1) to (x2,y2) over duration_ms. Default 300ms. Use for scroll, navigation.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -489,35 +412,7 @@ Examples:
   },
 
   input_text: {
-    description: `Type text or send key events to device.
-
-Two modes:
-1. **Text mode**: Type literal text (letters, numbers, symbols)
-2. **Keycode mode**: Send special key events (HOME, BACK, ENTER, etc.)
-
-Text mode:
-- Automatically escapes special characters
-- Spaces are converted to %s (Android requirement)
-- Useful for entering text in fields
-
-Keycode mode:
-- Send hardware/software button presses
-- Common keycodes: HOME, BACK, ENTER, VOLUME_UP, VOLUME_DOWN, POWER, MENU, etc.
-- See full list in error message if invalid keycode provided
-
-⚠️ **Note**: Provide either 'text' OR 'keycode', not both.
-
-Safety: Non-destructive, no confirmation required
-
-Requires: Android device in ADB mode
-
-Examples:
-- input_text(device_id="ABC123", text="Hello World") → Type text
-- input_text(device_id="ABC123", text="my_password123") → Type password
-- input_text(device_id="ABC123", keycode="ENTER") → Press Enter
-- input_text(device_id="ABC123", keycode="HOME") → Press Home button
-- input_text(device_id="ABC123", keycode="BACK") → Press Back button
-- input_text(device_id="ABC123", keycode="VOLUME_UP") → Press Volume Up`,
+    description: `Type text OR send keycode (HOME, BACK, ENTER, VOLUME_UP, etc.). Provide one, not both.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -589,31 +484,7 @@ Examples:
   },
 
   record_screen: {
-    description: `Record device screen to video file.
-
-Records device screen activity to MP4 video file. Useful for:
-- Documenting bugs and issues
-- Creating tutorials and demonstrations
-- Capturing UI interactions
-- Testing animations and transitions
-
-Features:
-- Records video and audio (if available)
-- Configurable bit rate for quality/size trade-off
-- Maximum duration: 180 seconds (Android limitation)
-- Output format: MP4 (H.264/AAC)
-
-⚠️ **Note**: This is a blocking operation - it waits for recording to complete.
-
-Requires: 
-- Android 4.4+ (API 19)
-- Device in ADB mode
-- Screen on during recording
-
-Examples:
-- record_screen(device_id="ABC123", duration_seconds=10, output_path="/videos/demo.mp4") → 10-second recording
-- record_screen(device_id="ABC123", duration_seconds=30, output_path="/videos/bug.mp4", bit_rate="8M") → High quality
-- record_screen(device_id="ABC123", duration_seconds=5, output_path="/videos/quick.mp4", bit_rate="2M") → Low quality`,
+    description: `Record screen to MP4 (max 180s). Blocking operation. Bit rate: "4M" default, "8M" high quality.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -732,17 +603,7 @@ Examples:
   },
 
   dump_ui_hierarchy: {
-    description: `Dump current UI view hierarchy as XML.
-
-Returns XML representation of all UI elements on screen. Essential for:
-- Finding element coordinates for tapping
-- Identifying element text, IDs, and class names
-- Understanding app structure
-- Automated UI testing
-
-XML includes: bounds, text, resource-id, class, content-desc for each element.
-
-Requires: Android device in ADB mode, screen on`,
+    description: `Dump UI view hierarchy as XML. Shows element bounds, text, IDs, classes for UI automation.`,
     inputSchema: {
       type: 'object' as const,
       properties: {

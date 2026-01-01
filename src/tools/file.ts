@@ -52,21 +52,7 @@ export const SyncDataSchema = z.object({
 // Tool implementations
 export const fileTools = {
   push_files: {
-    description: `Upload files or directories from local machine to device.
-
-Transfers files/directories to device storage. Supports both individual files and entire directories.
-
-sync mode: Only uploads changed files (faster for large directories)
-
-Common device paths:
-- /sdcard/ - Internal storage (user accessible)
-- /sdcard/Download/ - Downloads folder
-- /data/local/tmp/ - Temporary storage (requires root for most paths)
-
-Examples:
-- push_files(device_id="ABC123", local_path="/path/to/file.txt", remote_path="/sdcard/")
-- push_files(device_id="ABC123", local_path="/path/to/folder", remote_path="/sdcard/MyFolder/")
-- push_files(device_id="ABC123", local_path="/photos/", remote_path="/sdcard/Pictures/", sync=true)`,
+    description: `Upload files/directories to device. Use sync=true to only push changed files.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -123,20 +109,7 @@ Examples:
   },
 
   pull_files: {
-    description: `Download files or directories from device to local machine.
-
-Transfers files/directories from device to local storage. Supports both individual files and entire directories.
-
-Common device paths to pull from:
-- /sdcard/Download/ - Downloaded files
-- /sdcard/DCIM/Camera/ - Camera photos/videos
-- /sdcard/Pictures/ - Pictures folder
-- /data/local/tmp/ - Temporary files
-
-Examples:
-- pull_files(device_id="ABC123", remote_path="/sdcard/file.txt", local_path="/local/backup/")
-- pull_files(device_id="ABC123", remote_path="/sdcard/DCIM/Camera/", local_path="/photos/", preserve_timestamp=true)
-- pull_files(device_id="ABC123", remote_path="/sdcard/Download/document.pdf", local_path="./downloads/")`,
+    description: `Download files/directories from device to local machine. Use preserve_timestamp=true to keep dates.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -196,19 +169,7 @@ Examples:
   },
 
   list_files: {
-    description: `List files and directories on device.
-
-Shows directory contents with details:
-- File name and type (file/directory/symlink)
-- Size in bytes
-- Permissions (rwx format)
-- Owner and group
-- Last modified date
-
-Examples:
-- list_files(device_id="ABC123", path="/sdcard/")
-- list_files(device_id="ABC123", path="/sdcard/Download/", recursive=true)
-- list_files(device_id="ABC123", path="/data/local/tmp/", format="json")`,
+    description: `List directory contents with file details (name, type, size, permissions). Use recursive=true for subdirs.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -283,24 +244,7 @@ Examples:
   },
 
   backup_partition: {
-    description: `Backup (dump) device partition to local file.
-
-Creates a binary dump of the specified partition. Device must be in fastboot mode.
-
-⚠️ WARNING: Partition backups can be very large (GB). Ensure sufficient local storage.
-
-Common partitions:
-- boot: Boot image (kernel + ramdisk)
-- recovery: Recovery partition
-- system: System partition (Android OS)
-- userdata: User data partition
-- vendor: Vendor partition
-
-Examples:
-- backup_partition(device_id="ABC123", partition="boot", output_path="/backups/boot.img")
-- backup_partition(device_id="ABC123", partition="recovery", output_path="./recovery_backup.img")
-
-Note: Device must be rebooted to fastboot mode first using reboot_device(mode="bootloader")`,
+    description: `⚠️ Backup partition to local file. Requires fastboot mode. Warning: partitions can be GB-sized.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -347,24 +291,7 @@ Note: Device must be rebooted to fastboot mode first using reboot_device(mode="b
   },
 
   execute_shell: {
-    description: `Execute arbitrary shell command on device.
-
-Runs any shell command on the device and returns output. Use with caution.
-
-Common commands:
-- getprop → System properties
-- dumpsys battery → Battery info
-- pm list packages → List apps
-- am start -n <package/activity> → Launch app
-- screencap -p /sdcard/screen.png → Screenshot
-- input text "hello" → Type text
-- input keyevent KEYCODE_HOME → Press home button
-
-Examples:
-- execute_shell(device_id="ABC123", command="getprop ro.build.version.release")
-- execute_shell(device_id="ABC123", command="dumpsys battery")
-- execute_shell(device_id="ABC123", command="screencap -p /sdcard/screenshot.png")
-- execute_shell(device_id="ABC123", command="input keyevent 26") # Power button`,
+    description: `Execute shell command on device and return output. Use with caution.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -414,18 +341,7 @@ Examples:
   },
 
   sync_data: {
-    description: `Sync filesystem buffers to disk.
-
-Forces the device to write all pending data to disk. Useful before pulling files or rebooting.
-
-Operations:
-- sync: Sync all filesystems
-- sync-data: Sync only data partition
-- sync-system: Sync only system partition
-
-Examples:
-- sync_data(device_id="ABC123") → Sync all
-- sync_data(device_id="ABC123", operation="sync-data") → Sync data partition only`,
+    description: `Sync filesystem buffers to disk. Operations: sync (all), sync-data, sync-system.`,
     inputSchema: {
       type: 'object' as const,
       properties: {
