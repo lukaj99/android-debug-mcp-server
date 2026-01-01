@@ -56,6 +56,14 @@ export const GetRecentCrashesSchema = z.object({
   format: z.enum(['markdown', 'json']).default('markdown')
 }).strict();
 
+export const ForwardPortSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  action: z.enum(['forward', 'remove', 'list']).default('forward').describe('Action: forward, remove, or list'),
+  local_port: z.number().optional().describe('Local TCP port to forward (required for forward/remove)'),
+  remote_port: z.number().optional().describe('Remote TCP port on device (required for forward)'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
 // Tool implementations
 export const deviceTools = {
   list_devices: {
@@ -690,6 +698,132 @@ Examples:
         }
 
         return output.trim();
+      });
+    }
+  },
+
+  forward_port: {
+    description: `Manage ADB port forwarding for network debugging.
+
+Actions:
+- forward: Create a port forward from local to device
+- remove: Remove a specific port forward
+- list: List all active port forwards
+
+Use for debugging apps with network tools, remote debugging, etc.
+
+Examples:
+- forward_port(device_id="ABC123", local_port=8080, remote_port=8080) → Forward 8080
+- forward_port(device_id="ABC123", action="list") → List forwards
+- forward_port(device_id="ABC123", action="remove", local_port=8080) → Remove forward`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        action: {
+          type: 'string' as const,
+          enum: ['forward', 'remove', 'list'],
+          default: 'forward',
+          description: 'Action to perform'
+        },
+        local_port: {
+          type: 'number' as const,
+          description: 'Local TCP port'
+        },
+        remote_port: {
+          type: 'number' as const,
+          description: 'Remote TCP port on device'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof ForwardPortSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.validateDevice(args.device_id);
+
+        switch (args.action) {
+          case 'list': {
+            const result = await CommandExecutor.adb(args.device_id, ['forward', '--list']);
+            if (!result.success) {
+              throw new Error(`Failed to list port forwards: ${result.stderr}`);
+            }
+
+            const forwards = result.stdout.trim()
+              .split('\n')
+              .filter(l => l.trim())
+              .map(line => {
+                const parts = line.split(/\s+/);
+                return { device: parts[0], local: parts[1], remote: parts[2] };
+              });
+
+            if (args.format === 'json') {
+              return JSON.stringify({ forwards }, null, 2);
+            }
+
+            if (forwards.length === 0) {
+              return '# Port Forwards\n\n*No active port forwards*';
+            }
+
+            let output = '# Active Port Forwards\n\n| Local | Remote |\n|-------|--------|\n';
+            for (const f of forwards) {
+              output += `| ${f.local} | ${f.remote} |\n`;
+            }
+            return output;
+          }
+
+          case 'remove': {
+            if (!args.local_port) {
+              throw new Error('local_port is required for remove action');
+            }
+
+            const result = await CommandExecutor.adb(
+              args.device_id,
+              ['forward', '--remove', `tcp:${args.local_port}`]
+            );
+
+            if (!result.success) {
+              throw new Error(`Failed to remove port forward: ${result.stderr}`);
+            }
+
+            return ResponseFormatter.success(
+              `Removed port forward from local port ${args.local_port}`,
+              { local_port: args.local_port }
+            );
+          }
+
+          case 'forward':
+          default: {
+            if (!args.local_port || !args.remote_port) {
+              throw new Error('Both local_port and remote_port are required for forward action');
+            }
+
+            const result = await CommandExecutor.adb(
+              args.device_id,
+              ['forward', `tcp:${args.local_port}`, `tcp:${args.remote_port}`]
+            );
+
+            if (!result.success) {
+              throw new Error(`Failed to create port forward: ${result.stderr}`);
+            }
+
+            return ResponseFormatter.success(
+              `Port forward created: localhost:${args.local_port} → device:${args.remote_port}`,
+              {
+                local_port: args.local_port,
+                remote_port: args.remote_port,
+                usage: `Connect to localhost:${args.local_port} to reach device port ${args.remote_port}`
+              }
+            );
+          }
+        }
       });
     }
   }
