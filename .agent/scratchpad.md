@@ -14,7 +14,7 @@
 - [x] P1: Async Screenshot Base64 (`src/tools/interaction.ts`) - Replaced `fs.readFileSync()` with async `fs.promises.readFile()` for non-blocking base64 encoding.
 
 ## Next Steps
-- [ ] P2: Add `dump_ui_hierarchy` Tool
-- [ ] P2: Add `get_recent_crashes` Tool
+- [x] P2: Add `dump_ui_hierarchy` Tool - Added to `src/tools/interaction.ts` with DumpUIHierarchySchema. Uses `uiautomator dump` command, returns XML hierarchy.
+- [x] P2: Add `get_recent_crashes` Tool - Added to `src/tools/device.ts`. Collects crash buffer (logcat -b crash), tombstones, and ANR traces.
 - [ ] P2: Add `forward_port` Tool
 - [ ] P3: Trim Tool Descriptions

@@ -50,6 +50,12 @@ export const SetupPlatformToolsSchema = z.object({
   format: z.enum(['markdown', 'json']).default('markdown')
 }).strict();
 
+export const GetRecentCrashesSchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  max_entries: z.number().default(10).describe('Maximum crash entries to return'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
 // Tool implementations
 export const deviceTools = {
   list_devices: {
@@ -565,6 +571,125 @@ ${result}
 - Fastboot: ${newStatus.fastbootVersion}
 
 All commands will now use these tools automatically.`;
+      });
+    }
+  },
+
+  get_recent_crashes: {
+    description: `Get recent crash logs and tombstones from device.
+
+Collects:
+- Crash buffer from logcat (native and Java crashes)
+- Tombstone files (native crash dumps)
+
+Essential for debugging app crashes, ANRs, and system issues.
+
+Examples:
+- get_recent_crashes(device_id="ABC123") → Recent crashes
+- get_recent_crashes(device_id="ABC123", max_entries=5) → Last 5 crashes`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        max_entries: {
+          type: 'number' as const,
+          default: 10,
+          description: 'Maximum crash entries to return'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof GetRecentCrashesSchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.validateDevice(args.device_id);
+
+        const crashes: {
+          tombstones: string[];
+          crash_logs: string;
+          anr_traces: string;
+        } = {
+          tombstones: [],
+          crash_logs: '',
+          anr_traces: ''
+        };
+
+        // Get crash buffer from logcat (non-root accessible)
+        const crashLogs = await CommandExecutor.adb(
+          args.device_id,
+          ['logcat', '-b', 'crash', '-d', '-t', args.max_entries.toString()]
+        );
+        if (crashLogs.success) {
+          crashes.crash_logs = crashLogs.stdout.trim();
+        }
+
+        // Try to list tombstones (may require root)
+        const tombstoneList = await CommandExecutor.shell(
+          args.device_id,
+          'ls -la /data/tombstones/ 2>/dev/null || echo "NO_ACCESS"'
+        );
+        if (tombstoneList.success && !tombstoneList.stdout.includes('NO_ACCESS')) {
+          const files = tombstoneList.stdout.split('\n')
+            .filter(l => l.includes('tombstone_'))
+            .slice(0, args.max_entries);
+
+          // Get content of recent tombstones
+          for (const file of files) {
+            const match = file.match(/(tombstone_\d+)/);
+            if (match) {
+              const content = await CommandExecutor.shell(
+                args.device_id,
+                `head -50 /data/tombstones/${match[1]} 2>/dev/null`
+              );
+              if (content.success && content.stdout.trim()) {
+                crashes.tombstones.push(`=== ${match[1]} ===\n${content.stdout.trim()}`);
+              }
+            }
+          }
+        }
+
+        // Check for ANR traces
+        const anrTraces = await CommandExecutor.shell(
+          args.device_id,
+          'cat /data/anr/traces.txt 2>/dev/null | head -100 || echo ""'
+        );
+        if (anrTraces.success && anrTraces.stdout.trim()) {
+          crashes.anr_traces = anrTraces.stdout.trim();
+        }
+
+        if (args.format === 'json') {
+          return JSON.stringify(crashes, null, 2);
+        }
+
+        let output = `# Recent Crashes: ${args.device_id}\n\n`;
+
+        if (crashes.crash_logs) {
+          output += `## Crash Logs (logcat -b crash)\n\`\`\`\n${crashes.crash_logs}\n\`\`\`\n\n`;
+        } else {
+          output += `## Crash Logs\n*No recent crashes in logcat buffer*\n\n`;
+        }
+
+        if (crashes.tombstones.length > 0) {
+          output += `## Tombstones (${crashes.tombstones.length})\n`;
+          for (const tb of crashes.tombstones) {
+            output += `\`\`\`\n${tb}\n\`\`\`\n\n`;
+          }
+        } else {
+          output += `## Tombstones\n*No tombstones found or access denied (may require root)*\n\n`;
+        }
+
+        if (crashes.anr_traces) {
+          output += `## ANR Traces\n\`\`\`\n${crashes.anr_traces}\n\`\`\`\n`;
+        }
+
+        return output.trim();
       });
     }
   }

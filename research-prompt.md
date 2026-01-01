@@ -148,9 +148,11 @@ Research phase only. Implementation will be done by Claude in Phase 2.
 - [x] P1: Batch Partition Size Queries - already implemented in original code
 - [x] P1: Streaming File Hash - commit `e626e58` (replaced `fs.readFileSync` with streaming hash)
 - [x] P1: Async Screenshot Base64 - replaced `fs.readFileSync()` with `fs.promises.readFile()`
+- [x] P2: Add `dump_ui_hierarchy` tool - commit `0c71e27` (uiautomator dump for UI automation)
 
 ### In Progress
-- [ ] P2: Add `dump_ui_hierarchy` tool
-- [ ] P2: Add `get_recent_crashes` tool
 - [ ] P2: Add `forward_port` tool
 - [ ] P3: Trim Tool Descriptions
+
+### Just Completed This Iteration
+- [x] P2: Add `get_recent_crashes` tool - commit pending (collects crash logs, tombstones, ANR traces)
