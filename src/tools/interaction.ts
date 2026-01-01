@@ -55,6 +55,12 @@ export const RecordScreenSchema = z.object({
   bit_rate: z.string().default('4M').describe('Bit rate (e.g., "4M", "8M", "12M") - default: 4M')
 }).strict();
 
+export const DumpUIHierarchySchema = z.object({
+  device_id: z.string().describe('Device ID from list_devices()'),
+  output_path: z.string().optional().describe('Local path to save XML file (optional)'),
+  format: z.enum(['markdown', 'json']).default('markdown')
+}).strict();
+
 // Tool implementations
 export const interactionTools = {
   capture_screenshot: {
@@ -713,6 +719,113 @@ Examples:
           result += `**Actual Time**: ${Math.round(durationMs / 1000)} seconds\n`;
           result += `**Timestamp**: ${recording.timestamp}\n`;
           result += `\n✅ Recording saved successfully`;
+
+          return result;
+
+        } catch (error) {
+          // Cleanup on error
+          await CommandExecutor.shell(args.device_id, `rm ${tempPath}`).catch(() => {});
+          throw error;
+        }
+      });
+    }
+  },
+
+  dump_ui_hierarchy: {
+    description: `Dump current UI view hierarchy as XML.
+
+Returns XML representation of all UI elements on screen. Essential for:
+- Finding element coordinates for tapping
+- Identifying element text, IDs, and class names
+- Understanding app structure
+- Automated UI testing
+
+XML includes: bounds, text, resource-id, class, content-desc for each element.
+
+Requires: Android device in ADB mode, screen on`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        device_id: {
+          type: 'string' as const,
+          description: 'Device ID from list_devices()'
+        },
+        output_path: {
+          type: 'string' as const,
+          description: 'Local path to save XML file (optional)'
+        },
+        format: {
+          type: 'string' as const,
+          enum: ['markdown', 'json'],
+          default: 'markdown'
+        }
+      },
+      required: ['device_id']
+    },
+    handler: async (args: z.infer<typeof DumpUIHierarchySchema>) => {
+      return ErrorHandler.wrap(async () => {
+        await DeviceManager.requireMode(args.device_id, 'device');
+
+        const tempPath = `/sdcard/ui_hierarchy_${Date.now()}.xml`;
+
+        try {
+          // Dump UI hierarchy to device
+          const dumpResult = await CommandExecutor.shell(
+            args.device_id,
+            `uiautomator dump ${tempPath}`
+          );
+
+          if (!dumpResult.success || dumpResult.stderr.includes('Error')) {
+            throw new Error(
+              `Failed to dump UI hierarchy: ${dumpResult.stderr || dumpResult.stdout}\n\n` +
+              `Possible causes:\n` +
+              `- Screen is off or locked\n` +
+              `- UIAutomator service unavailable\n` +
+              `- App is blocking UIAutomator`
+            );
+          }
+
+          // Read the XML content
+          const catResult = await CommandExecutor.shell(
+            args.device_id,
+            `cat ${tempPath}`
+          );
+
+          if (!catResult.success) {
+            throw new Error(`Failed to read UI hierarchy: ${catResult.stderr}`);
+          }
+
+          const xmlContent = catResult.stdout.trim();
+          const xmlSize = Buffer.byteLength(xmlContent, 'utf8');
+
+          // Optionally save to local file
+          if (args.output_path) {
+            const outputDir = path.dirname(args.output_path);
+            if (!fs.existsSync(outputDir)) {
+              fs.mkdirSync(outputDir, { recursive: true });
+            }
+            fs.writeFileSync(args.output_path, xmlContent);
+          }
+
+          // Cleanup temp file on device
+          await CommandExecutor.shell(args.device_id, `rm ${tempPath}`).catch(() => {});
+
+          if (args.format === 'json') {
+            return JSON.stringify({
+              xml: xmlContent,
+              sizeBytes: xmlSize,
+              savedTo: args.output_path || null,
+              timestamp: new Date().toISOString()
+            }, null, 2);
+          }
+
+          let result = `# UI Hierarchy\n\n`;
+          result += `**Size**: ${formatBytes(xmlSize)}\n`;
+          if (args.output_path) {
+            result += `**Saved to**: ${args.output_path}\n`;
+          }
+          result += `**Timestamp**: ${new Date().toISOString()}\n\n`;
+          result += `\`\`\`xml\n${xmlContent}\n\`\`\``;
 
           return result;
 
