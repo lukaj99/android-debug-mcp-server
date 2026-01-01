@@ -157,9 +157,9 @@ Examples:
             timestamp: new Date().toISOString()
           };
 
-          // Optionally encode to base64
+          // Optionally encode to base64 (async for large files)
           if (args.return_base64) {
-            const imageBuffer = fs.readFileSync(outputPath);
+            const imageBuffer = await fs.promises.readFile(outputPath);
             screenshot.base64 = imageBuffer.toString('base64');
           }
 

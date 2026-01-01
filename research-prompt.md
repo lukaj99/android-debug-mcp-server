@@ -147,9 +147,9 @@ Research phase only. Implementation will be done by Claude in Phase 2.
 - [x] P0: Increase Cache TTL - commit `9b07391`
 - [x] P1: Batch Partition Size Queries - already implemented in original code
 - [x] P1: Streaming File Hash - commit `e626e58` (replaced `fs.readFileSync` with streaming hash)
+- [x] P1: Async Screenshot Base64 - replaced `fs.readFileSync()` with `fs.promises.readFile()`
 
 ### In Progress
-- [ ] P1: Async Screenshot Base64
 - [ ] P2: Add `dump_ui_hierarchy` tool
 - [ ] P2: Add `get_recent_crashes` tool
 - [ ] P2: Add `forward_port` tool
